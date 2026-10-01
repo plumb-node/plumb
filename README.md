@@ -1,4 +1,4 @@
-![Plumb](plumb/assets/png/readme-header.png)
+![Plumb](plumb/assets/png/social-preview.png)
 
 ![filters](plumb/assets/badge-filters.svg)
 
