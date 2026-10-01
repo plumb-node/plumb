@@ -35,7 +35,7 @@ Knots pull request, or both.
 4. Add it to `PLUMB_FILTERS` in `src/init.cpp` and to `plumb/filters.json`
    (option, source, url, upstream status, branch, commit, summary, the
    release it first ships in).
-5. Add the row to the README table and run `plumb/tools/gen-assets.py`. It
+5. Add it to the list in the README and run `plumb/tools/gen-assets.py`. It
    fails if `src/init.cpp` and `plumb/filters.json` disagree, and it rewrites
    the badge.
 6. Build with `-Werror`, run `ctest --test-dir build` and the full functional
@@ -51,7 +51,7 @@ keep shipping it. The `filter/<name>` branch is the copy we maintain from
 then on.
 
 When Knots merges a filter, it arrives with the next Knots release. Drop it
-from `PLUMB_FILTERS`, `plumb/filters.json` and the README table on that
+from `PLUMB_FILTERS`, `plumb/filters.json` and the README list on that
 rebase, and delete its `filter/` branch.
 
 Moving to a new Knots release
