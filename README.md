@@ -19,10 +19,12 @@ Knots at any time.
 What Plumb ships
 ----------------
 
-| Option | Default | From | What it does |
-|--------|---------|------|--------------|
-| `-rejectfakeoutputs` | on | [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389) | Counts outputs whose hash or key is data as data carrier bytes |
-| `-rejectdeadbranches` | on | [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400) | Counts data in a conditional branch that constants make unreachable |
+- **`-rejectfakeoutputs`** (default on, from
+  [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389)): counts
+  outputs whose hash or key is data as data carrier bytes.
+- **`-rejectdeadbranches`** (default on, from
+  [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400)): counts data
+  in a conditional branch that constants make unreachable.
 
 Each filter is its own option. Turn one off with `-rejectfakeoutputs=0` (or
 the same line in `bitcoin.conf`). `-corepolicy` turns all of them off along
