@@ -15,6 +15,7 @@
 #include <policy/feerate.h>
 #include <policy/settings.h>
 #include <primitives/transaction.h>
+#include <pubkey.h>
 #include <script/interpreter.h>
 #include <script/script.h>
 #include <script/solver.h>
@@ -27,7 +28,9 @@
 #include <array>
 #include <cstddef>
 #include <limits>
+#include <map>
 #include <optional>
+#include <set>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -633,7 +636,114 @@ std::pair<CScript, unsigned int> GetScriptForTransactionInput(CScript prevScript
     return std::make_pair(CScript(), 0);
 }
 
-std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view)
+namespace {
+
+/** The hash or x-only key of a single-hash output type; empty for any other script. */
+std::vector<unsigned char> OutputProgram(const CScript& script, TxoutType& type)
+{
+    std::vector<std::vector<unsigned char>> solutions;
+    type = Solver(script, solutions);
+    switch (type) {
+    case TxoutType::PUBKEYHASH:
+    case TxoutType::SCRIPTHASH:
+    case TxoutType::WITNESS_V0_KEYHASH:
+    case TxoutType::WITNESS_V0_SCRIPTHASH:
+    case TxoutType::WITNESS_V1_TAPROOT:
+        return solutions[0];
+    default:
+        return {};
+    }
+}
+
+/**
+ * A hash or x-only key is uniformly random. One byte value turning up
+ * DATA_OUTPUT_BYTE_MULTIPLICITY times has probability 1.3e-10 in 32 random
+ * bytes and 1.7e-12 in 20; a run of DATA_OUTPUT_BYTE_RUN identical bytes
+ * 2.5e-11 and 1.4e-11. Length prefixes, headers, padding and plain text all
+ * trip one or the other. The all-zero hash is the conventional burn address
+ * and carries no payload, so it is left alone.
+ */
+bool ProgramLooksLikeData(const std::vector<unsigned char>& program)
+{
+    if (std::all_of(program.begin(), program.end(), [](unsigned char b) { return b == 0; })) return false;
+    unsigned int counts[256]{};
+    unsigned int run{0};
+    unsigned char last{0};
+    for (const unsigned char b : program) {
+        if (++counts[b] >= DATA_OUTPUT_BYTE_MULTIPLICITY) return true;
+        run = (run && b == last) ? run + 1 : 1;
+        if (run >= DATA_OUTPUT_BYTE_RUN) return true;
+        last = b;
+    }
+    return false;
+}
+
+} // namespace
+
+std::vector<size_t> DataOutputBytes(const CTransaction& tx)
+{
+    const size_t n{tx.vout.size()};
+    std::vector<size_t> program_size(n, 0);
+    std::vector<TxoutType> types(n, TxoutType::NONSTANDARD);
+    std::vector<bool> in_run(n, false);
+    std::vector<bool> data(n, false);
+    std::vector<bool> covered(n, false);
+    std::map<CAmount, std::set<std::vector<unsigned char>>> run_programs;
+    unsigned int curve_checks{0};
+
+    for (size_t i{0}; i < n; ++i) {
+        const CTxOut& txout{tx.vout[i]};
+        if (covered[i]) continue;
+        if (const size_t olga_bytes{txout.scriptPubKey.IsOLGA(n - i)}; olga_bytes) {
+            // The OLGA detector counts this header and its chunks already
+            const size_t olga_outputs{olga_bytes / (WITNESS_V0_SCRIPTHASH_SIZE + /* script length */ 1 + /* amount */ 8)};
+            for (size_t j{i}; j < std::min(n, i + olga_outputs); ++j) covered[j] = true;
+            continue;
+        }
+        const auto program{OutputProgram(txout.scriptPubKey, types[i])};
+        if (program.empty()) continue;
+        program_size[i] = program.size();
+        if (ProgramLooksLikeData(program)) {
+            data[i] = true;
+        } else if (types[i] == TxoutType::WITNESS_V1_TAPROOT && curve_checks < DATA_OUTPUT_CURVE_CHECKS) {
+            // Not a point on the curve: nobody can ever spend this. The check
+            // costs a field square root, so only the first
+            // DATA_OUTPUT_CURVE_CHECKS taproot outputs get it. A whitened
+            // chunk is off the curve half the time, so a payload among them
+            // trips this and the sibling rule marks the rest of its chunks.
+            ++curve_checks;
+            if (!XOnlyPubKey{program}.IsFullyValid()) data[i] = true;
+        }
+        if (types[i] == TxoutType::WITNESS_V0_SCRIPTHASH && txout.nValue <= DATA_OUTPUT_RUN_MAX_VALUE) {
+            in_run[i] = true;
+            run_programs[txout.nValue].insert(program);
+        }
+    }
+
+    // A payload is spread over several outputs, and its other chunks may be
+    // whitened, so anything caught marks its siblings of the same type and
+    // value. Separately, DATA_OUTPUT_DUST_RUN or more distinct P2WSH outputs
+    // sharing one small value are data on their own: encoders pay every chunk
+    // the same, Lightning anchors come in pairs and HTLC amounts differ, and
+    // padding repeats one script. Taproot is left to the curve check, since a
+    // run of small taproot outputs is ordinals postage, not a payload.
+    std::set<std::pair<TxoutType, CAmount>> data_groups;
+    for (size_t i{0}; i < n; ++i) {
+        if (data[i]) data_groups.emplace(types[i], tx.vout[i].nValue);
+    }
+    std::vector<size_t> ret(n, 0);
+    for (size_t i{0}; i < n; ++i) {
+        if (!program_size[i]) continue;
+        const bool sibling{data_groups.count({types[i], tx.vout[i].nValue}) > 0};
+        const bool dust_run{in_run[i] && run_programs[tx.vout[i].nValue].size() >= DATA_OUTPUT_DUST_RUN};
+        if (data[i] || sibling || dust_run) {
+            ret[i] = program_size[i] + /* script length */ 1 + /* amount */ 8;
+        }
+    }
+    return ret;
+}
+
+std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs)
 {
     std::pair<size_t, size_t> ret{0, 0};
 
@@ -648,13 +758,14 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
         const CTxOut& txout = tx.vout[--i];
         const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i);
         ret.first += dcb.first;
-        ret.second += dcb.second;
+        // An OLGA header counts its whole payload, so keep the larger figure
+        ret.second += std::max(dcb.second, data_outputs[i]);
     }
 
     return ret;
 }
 
-int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& view, const unsigned int weight_per_data_byte)
+int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& view, const unsigned int weight_per_data_byte, const std::vector<size_t>& data_outputs)
 {
     int64_t mod_weight{0};
 
@@ -672,7 +783,7 @@ int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& vi
             for (size_t i{tx.vout.size()}; i; ) {
                 const CTxOut& txout = tx.vout[--i];
                 const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i);
-                mod_weight += int64_t(dcb.first + dcb.second) * (weight_per_data_byte - WITNESS_SCALE_FACTOR);
+                mod_weight += int64_t(std::max(dcb.first + dcb.second, data_outputs[i])) * (weight_per_data_byte - WITNESS_SCALE_FACTOR);
             }
         }
     }
