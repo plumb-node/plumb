@@ -1,0 +1,22 @@
+[
+  {
+    "option": "-rejectfakeoutputs",
+    "source": "knots#389",
+    "url": "https://github.com/bitcoinknots/bitcoin/pull/389",
+    "upstream": "open",
+    "branch": "filter/rejectfakeoutputs",
+    "commit": "34ce3a5763f2527f62135338ddf6a75d052048a3",
+    "summary": "Count outputs whose hash or key is data as data carrier bytes",
+    "since": "v29.4.2.knots20260508.plumb1"
+  },
+  {
+    "option": "-rejectdeadbranches",
+    "source": "knots#400",
+    "url": "https://github.com/bitcoinknots/bitcoin/pull/400",
+    "upstream": "open",
+    "branch": "filter/rejectdeadbranches",
+    "commit": "e704b7a71337772ff673d092b6161c2e02ff1a70",
+    "summary": "Count data in a conditional branch that constants make unreachable",
+    "since": "v29.4.2.knots20260508.plumb1"
+  }
+]
