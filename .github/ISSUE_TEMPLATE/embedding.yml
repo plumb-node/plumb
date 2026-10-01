@@ -1,0 +1,23 @@
+name: Embedding shape
+description: Report a way data is getting through that no filter catches.
+labels: [Embedding]
+body:
+  - type: textarea
+    id: shape
+    attributes:
+      label: How the data is carried
+      description: Output type, script layout, any magic bytes or markers you noticed.
+    validations:
+      required: true
+  - type: textarea
+    id: txids
+    attributes:
+      label: Example transactions
+      description: One txid per line, with the block height if you have it.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Plumb or Knots version you saw it relay on
+      placeholder: v29.4.2.knots20260508.plumb1
