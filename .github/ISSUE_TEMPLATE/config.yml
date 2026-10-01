@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Bitcoin Knots Security Policy
-    url: https://bitcoinknots.org/contact/
-    about: View security policy
-  - name: Bitcoin Knots Website
+  - name: Plumb security policy
+    url: https://github.com/plumb-node/plumb/security/policy
+    about: Report security issues privately
+  - name: Bitcoin Knots
     url: https://bitcoinknots.org
-    about: User-oriented information
+    about: Problems that also happen on Knots belong upstream
