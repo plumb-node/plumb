@@ -2,17 +2,18 @@
 
 ## Supported Versions
 
-See our website for versions of Bitcoin Knots that are currently supported with
-security updates: https://bitcoinknots.org/
+Only the latest Plumb release gets fixes. Each release is built on one Bitcoin
+Knots release; when Knots ships a security fix, Plumb follows with a new
+release on top of it.
 
 ## Reporting a Vulnerability
 
-To report security issues send an email to luke+security+knots@dashjr.org (not for support).
+Report Plumb security issues privately through GitHub:
+https://github.com/plumb-node/plumb/security/advisories/new (not for support).
 
-The following OpenPGP key should be used to communicate sensitive information:
+If the problem is also present in the Bitcoin Knots release underneath, report
+it to the Knots maintainer as well: luke+security+knots@dashjr.org, OpenPGP key
+`FAC0 98FE 8DF9 975F 9024  1881 3666 E2B1 782A 18E1`.
 
-| Name | Fingerprint |
-|------|-------------|
-| Luke Dashjr | FAC0 98FE 8DF9 975F 9024  1881 3666 E2B1 782A 18E1 |
-
-You can import a key by running the following command with that individual’s fingerprint: `gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"` Ensure that you put quotes around fingerprints containing spaces.
+Plumb releases are signed by Jason Sopko,
+`89F0 E41D 72CE 523F 4AA1  CDB6 92CD FFB7 C40C D1BA`.
