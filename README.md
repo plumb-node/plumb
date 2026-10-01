@@ -1,80 +1,111 @@
-Bitcoin Knots
-=============
+![Plumb](plumb/assets/png/readme-header.png)
 
-https://bitcoinknots.org
+![filters](plumb/assets/badge-filters.svg)
 
-For an immediately usable, binary version of the Bitcoin Knots software, see
-the website.
+Plumb is Bitcoin Knots plus the spam-policy filters the Plumb maintainers
+have reviewed and ACKed, whether they were opened against Knots or here, and
+whether or not Knots merges them. Each release is one Knots release plus
+those merges and nothing else.
 
-What is Bitcoin Knots?
-----------------------
+It is a policy project, not a consensus project. The filters change what
+your node relays and what your node mines. They do not change which blocks
+are valid, so Plumb follows the same chain as the Knots release it is built
+on.
 
-Bitcoin Knots connects to the Bitcoin peer-to-peer network to download and fully
-validate blocks and transactions. It also includes a wallet and graphical user
-interface, which can be optionally built.
+It is a drop-in replacement for Knots: same `bitcoind` and `bitcoin-cli`
+binaries, same `bitcoin.conf`, same data directory. You can switch back to
+Knots at any time.
 
-Further information about Bitcoin Knots is available in the [doc folder](/doc).
+What Plumb ships
+----------------
+
+| Option | Default | From | What it does |
+|--------|---------|------|--------------|
+| `-rejectfakeoutputs` | on | [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389) | Counts outputs whose hash or key is data as data carrier bytes |
+| `-rejectdeadbranches` | on | [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400) | Counts data in a conditional branch that constants make unreachable |
+
+Each filter is its own option. Turn one off with `-rejectfakeoutputs=0` (or
+the same line in `bitcoin.conf`). `-corepolicy` turns all of them off along
+with the rest of the Knots policy. The node logs which filters are active at
+startup:
+
+```
+Plumb filter -rejectfakeoutputs=1 (knots#389)
+Plumb filter -rejectdeadbranches=1 (knots#400)
+```
+
+The machine-readable list is [plumb/filters.json](plumb/filters.json), with
+the exact commit of each pull request that was merged.
+
+Getting it
+----------
+
+Plumb is distributed as source. Releases are signed git tags named after the
+Knots release they are built on, for example `v29.4.2.knots20260508.plumb1`.
+
+```sh
+git clone https://github.com/plumb-node/plumb
+cd plumb
+git checkout v29.4.2.knots20260508.plumb1
+git verify-tag v29.4.2.knots20260508.plumb1
+cmake -B build -DBUILD_GUI=OFF
+cmake --build build -j"$(nproc)"
+```
+
+Tags are signed by Jason Sopko,
+`89F0 E41D 72CE 523F 4AA1  CDB6 92CD FFB7 C40C D1BA`. Fetch the key with
+`gpg --keyserver hkps://keys.openpgp.org --recv-keys 89F0E41D72CE523F4AA1CDB692CDFFB7C40CD1BA`
+or from https://github.com/jasonsopko.gpg.
+
+Build dependencies and options are the same as Knots; see
+[doc/build-unix.md](doc/build-unix.md) and the other `doc/build-*.md` files.
+The binaries land in `build/bin/`.
+
+To hear about new releases, use Watch, Custom, Releases on this repository.
+Each release page lists what changed and the Knots release underneath it.
+
+Submitting a filter
+-------------------
+
+Plumb takes anti-spam policy filters as pull requests on this repository. If
+you have one open against Knots, open it here too and link the two; we
+review it on its own merits and keep shipping it whatever happens upstream.
+A filter that Knots closes stays in Plumb.
+
+What a filter needs:
+
+1. Its own option, default on, turned off by `-corepolicy`, the same shape
+   as `-rejectparasites`.
+2. Unit or functional tests for what it rejects and what it lets through.
+3. Numbers from the chain: how many transactions it would have rejected
+   over a stated block range, and a look at the ones that might be payments.
+   A filter that blocks ordinary wallet spends does not ship, however much
+   data it catches.
+
+We review it on the pull request, run it on a mainnet node, and post the
+ACK there. It is merged at the commit that was ACKed and kept on its own
+`filter/<option>` branch here, so it survives even if the author's branch
+goes away. If the author stops maintaining it, we carry it forward to each
+new Knots release ourselves.
+
+Found a new embedding shape but have no code for it? Open an issue with the
+"Embedding shape" form and a transaction id or two.
+
+See [plumb/MAINTAINING.md](plumb/MAINTAINING.md) for the merge and release
+process.
+
+Reporting problems
+------------------
+
+Report Plumb problems [here](https://github.com/plumb-node/plumb/issues),
+not to Knots. If a problem also happens on the Knots release underneath,
+it belongs upstream at https://github.com/bitcoinknots/bitcoin. Security
+issues go through [SECURITY.md](SECURITY.md).
 
 License
 -------
 
-Bitcoin Knots is released under the terms of the MIT license. See [COPYING](COPYING) for more
-information or see https://opensource.org/licenses/MIT.
-
-Development Process
--------------------
-
-Development generally takes place as part of [Bitcoin Core](https://github.com/bitcoin/bitcoin), and is merged into
-Knots for each release.
-
-Even if your pull request to Core is closed, or if your feature is not
-suitable for Core (eg, because it builds on a feature not supported in Core;
-relies on centralised services; etc), it may still be eligible for inclusion
-in Bitcoin Knots. In this case, a pull request may be opened on the
-[Knots GitHub](https://github.com/bitcoinknots/bitcoin) for review and consideration.
-When accepted, you are expected to maintain the submitted branch in your own
-repository, and it will be automatically merged into new releases of Knots.
-
-Developer IRC can be found on Freenode at #bitcoin-dev.
-
-Testing
--------
-
-Testing and code review is the bottleneck for development; we get more pull
-requests than we can review and test on short notice. Please be patient and help out by testing
-other people's pull requests, and remember this is a security-critical project where any mistake might cost people
-lots of money.
-
-### Automated Testing
-
-Developers are strongly encouraged to write [unit tests](src/test/README.md) for new code, and to
-submit new unit tests for old code. Unit tests can be compiled and run
-(assuming they weren't disabled during the generation of the build system) with: `ctest`. Further details on running
-and extending unit tests can be found in [/src/test/README.md](/src/test/README.md).
-
-There are also [regression and integration tests](/test), written
-in Python.
-These tests can be run (if the [test dependencies](/test) are installed) with: `build/test/functional/test_runner.py`
-(assuming `build` is your build directory).
-
-The CI (Continuous Integration) systems make sure that every pull request is built for Windows, Linux, and macOS,
-and that unit/sanity tests are run automatically.
-
-### Manual Quality Assurance (QA) Testing
-
-Changes should be tested by somebody other than the developer who wrote the
-code. This is especially important for large or high-risk changes. It is useful
-to add a test plan to the pull request description if testing the changes is
-not straightforward.
-
-Translations
-------------
-
-Changes to translations as well as new translations can be submitted to
-[Bitcoin Core's Transifex page](https://explore.transifex.com/bitcoin/bitcoin/).
-
-Translations are periodically pulled from Transifex and merged into the git repository. See the
-[translation process](doc/translation_process.md) for details on how this works.
-
-**Important**: We do not accept translation changes as GitHub pull requests because the next
-pull from Transifex would automatically overwrite them again.
+Plumb is released under the terms of the MIT license, the same as Bitcoin
+Knots and Bitcoin Core. See [COPYING](COPYING). It is built on the work of
+the Bitcoin Core and Bitcoin Knots developers; see https://bitcoinknots.org
+for Knots itself.
