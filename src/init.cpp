@@ -102,6 +102,7 @@
 #include <walletinitinterface.h>
 
 #include <algorithm>
+#include <array>
 #include <condition_variable>
 #include <cstdint>
 #include <cstdio>
@@ -109,6 +110,7 @@
 #include <functional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -980,6 +982,35 @@ void InitParameterInteraction(ArgsManager& args)
     }
 }
 
+//! Filters Plumb ships on top of Knots, with the PR each came from
+struct PlumbFilter {
+    std::string_view option;
+    bool default_value;
+    std::string_view source;
+};
+static constexpr std::array<PlumbFilter, 2> PLUMB_FILTERS{{
+    {"-rejectfakeoutputs", DEFAULT_REJECT_FAKE_OUTPUTS, "knots#389"},
+    {"-rejectdeadbranches", DEFAULT_REJECT_DEAD_BRANCHES, "knots#400"},
+}};
+
+static void LogPlumbBanner(const ArgsManager& args)
+{
+    for (const char* line : {
+             "       \\#####/",
+             "|\\      \\###/      /|",
+             "|###=====< >=====###|",
+             "|/      /###\\      \\|",
+             "        \\###/",
+             "         \\#/",
+             "          V"}) {
+        LogInfo("%s\n", line);
+    }
+    LogInfo("Plumb %s\n", FormatFullVersion());
+    for (const auto& filter : PLUMB_FILTERS) {
+        LogInfo("Plumb filter %s=%d (%s)\n", filter.option, args.GetBoolArg(std::string{filter.option}, filter.default_value), filter.source);
+    }
+}
+
 /**
  * Initialize global loggers.
  *
@@ -1622,6 +1653,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
         // Detailed error printed inside StartLogging().
         return false;
     }
+    LogPlumbBanner(args);
 
     LogPrintf("Using at most %i automatic connections (%i file descriptors available)\n", nMaxConnections, available_fds);
 
