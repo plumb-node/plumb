@@ -52,5 +52,24 @@
       "height": 963670,
       "note": "an 87 KB JPEG inscription in an ord envelope ended by `OP_2DROP`"
     }
+  },
+  {
+    "option": "-rejectfakemultisig",
+    "name": "Fake multisig keys",
+    "source": "knots#422",
+    "url": "https://github.com/bitcoinknots/bitcoin/pull/422",
+    "upstream": "open",
+    "branch": "filter/rejectfakemultisig",
+    "commit": "a9f26af73be96b7928bb032c3afe039cf6083326",
+    "summary": "Counts the keys of a multisig that no signature in the spend proves, beyond 10 per script, as data carrier bytes",
+    "since": "v29.4.2.knots20260508.plumb3",
+    "catches": "File chunks dressed as public keys: a 1-of-15 multisig where one key signs and the other 14 each carry 31 bytes of a file. Keys that no signature in the spend can prove, beyond ten per script, count as data. Covers P2WSH, P2SH and tapscript `multi_a`.",
+    "passes": "Real multisig and vaults, which since the fork leave at most ten keys unsigned in a script (a 2-of-3 vault with timelocked recovery branches; a plain 2-of-3 leaves one), including federations spending 11-of-15.",
+    "cost": "A Liquid federation spend through its 2-of-3 emergency branch leaves 16 keys unsigned and is refused. There has been one since the fork, `97f7d78b0b9ad4d47e150659c3091d905c3565fe7e6fd8977e4326b2b7af2270` at block 963410. Other nodes and miners still carry it.",
+    "example": {
+      "txid": "7690b398fe92a6aacfe65b639f14f274733df205d61e06f9424e7744c313a6e5",
+      "height": 974241,
+      "note": "a file in 475 inputs at 546 sat each, 474 of them a 1-of-15 multisig whose 14 unused keys are file chunks"
+    }
   }
 ]
