@@ -442,10 +442,15 @@ static size_t CountWitnessSignatures(const CScriptWitness& witness)
  * secp256k1 points, each carrying 31 bytes and hiding behind a hash until it is spent. Ordinary
  * multisig carries a couple of such keys itself, hence the tolerance.
  */
-static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* witness)
+static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* witness, const bool bare_envelopes)
 {
-    /** Unproven pubkeys a script may carry before the rest are counted as data. */
-    static constexpr size_t MAX_UNPROVEN_PUBKEYS{2};
+    /**
+     * Unproven pubkeys a script may carry before the rest are counted as data. Since the fork
+     * real wallets leave at most 10 keys unsigned (a 2-of-3 vault with timelocked 2-of-3 and
+     * 3-of-6 recovery branches; 8 for a plain 4-of-12), while the bpub encoder leaves 14 in
+     * each 1-of-15 input.
+     */
+    static constexpr size_t MAX_UNPROVEN_PUBKEYS{10};
 
     size_t pubkeys{0}, provable{0};
     // The current run of adjacent pubkey pushes, and the count that opened it. A well-formed
@@ -458,7 +463,7 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
     size_t multi_a_keys{0};
     int run_opened_by{-1}, last_count{-1}, last_a_count{-1};
     unsigned int inside_noop{0};
-    bool last_is_push{false};
+    bool last_is_push{false}, last_is_pubkey{false};
     // Whether the item before this one was a key a checksig-family opcode can still claim, and
     // whether it was the 32 byte kind that is only a key because one does.
     bool last_is_key{false}, last_is_xonly{false};
@@ -496,8 +501,13 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
             run_keys = 0;
             is_key = true;
         } else if ((opcode == OP_DROP || opcode == OP_2DROP) && last_is_push) {
-            // The caller counts the whole run as dropped data, so do not charge it again.
-            pubkeys -= push_run_keys;
+            // The caller counts dropped pushes as data, so do not charge them again: the whole
+            // run with -rejectbareenvelopes, only the last push before an OP_DROP without it.
+            if (bare_envelopes) {
+                pubkeys -= push_run_keys;
+            } else if (opcode == OP_DROP && last_is_pubkey) {
+                --pubkeys;
+            }
             run_keys = 0;
             multi_a_keys = 0;
         } else if (opcode == OP_CHECKSIG || opcode == OP_CHECKSIGVERIFY) {
@@ -546,6 +556,7 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
         last_count = count;
         last_a_count = a_count;
         last_is_push = is_push;
+        last_is_pubkey = is_pubkey && !inside_noop;
     }
 
     // A script can name more signatures than the spender supplies, including in branches that
@@ -568,7 +579,7 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
     return (pubkeys - provable - MAX_UNPROVEN_PUBKEYS) * CPubKey::COMPRESSED_SIZE;
 }
 
-std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness, const bool bare_envelopes) const
+std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness, const bool bare_envelopes, const bool fake_multisig) const
 {
     if (size_t olga_bytes = IsOLGA(remaining_outputs); olga_bytes) {
         return {0, olga_bytes};
@@ -627,7 +638,7 @@ std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outpu
             counted += it - data_began;
         }
     }
-    return {UnprovenPubkeyBytes(*this, witness), counted};
+    return {fake_multisig ? UnprovenPubkeyBytes(*this, witness, bare_envelopes) : 0, counted};
 }
 
 bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator end, opcodetype& opcodeRet, std::vector<unsigned char>* pvchRet)
