@@ -25,6 +25,10 @@ What Plumb ships
 - **`-rejectdeadbranches`** (default on, from
   [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400)): counts data
   in a conditional branch that constants make unreachable.
+- **`-rejectbareenvelopes`** (default on, from
+  [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319)): counts a
+  run of pushes ended by `OP_DROP` or `OP_2DROP` as data carrier bytes, the
+  envelope shape that needs no `OP_IF`.
 
 Each filter is its own option. Turn one off with `-rejectfakeoutputs=0` (or
 the same line in `bitcoin.conf`). `-corepolicy` turns all of them off along
@@ -34,6 +38,7 @@ startup:
 ```
 Plumb filter -rejectfakeoutputs=1 (knots#389)
 Plumb filter -rejectdeadbranches=1 (knots#400)
+Plumb filter -rejectbareenvelopes=1 (knots#319)
 ```
 
 The machine-readable list is [plumb/filters.json](plumb/filters.json), with
