@@ -79,3 +79,25 @@ rejectbareenvelopes=0
 ```
 
 or `-rejectbareenvelopes=0` on the command line. The code is on the [`filter/rejectbareenvelopes`](https://github.com/plumb-node/plumb/tree/filter/rejectbareenvelopes) branch and in [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319).
+
+
+Fake multisig keys
+------------------
+
+Option `-rejectfakemultisig`, default on, from [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422) (upstream: open), in Plumb since `v29.4.2.knots20260508.plumb3`.
+
+**What it rejects.** File chunks dressed as public keys: a 1-of-15 multisig where one key signs and the other 14 each carry 31 bytes of a file. Keys that no signature in the spend can prove, beyond ten per script, count as data. Covers P2WSH, P2SH and tapscript `multi_a`.
+
+**What it leaves alone.** Real multisig and vaults, which since the fork leave at most ten keys unsigned in a script (a 2-of-3 vault with timelocked recovery branches; a plain 2-of-3 leaves one), including federations spending 11-of-15.
+
+**Known cost.** A Liquid federation spend through its 2-of-3 emergency branch leaves 16 keys unsigned and is refused. There has been one since the fork, `97f7d78b0b9ad4d47e150659c3091d905c3565fe7e6fd8977e4326b2b7af2270` at block 963410. Other nodes and miners still carry it.
+
+**Example.** `7690b398fe92a6aacfe65b639f14f274733df205d61e06f9424e7744c313a6e5` at block 974241: a file in 475 inputs at 546 sat each, 474 of them a 1-of-15 multisig whose 14 unused keys are file chunks.
+
+**Turn it off.** In `bitcoin.conf`:
+
+```
+rejectfakemultisig=0
+```
+
+or `-rejectfakemultisig=0` on the command line. The code is on the [`filter/rejectfakemultisig`](https://github.com/plumb-node/plumb/tree/filter/rejectfakemultisig) branch and in [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422).
