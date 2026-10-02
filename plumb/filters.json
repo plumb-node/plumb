@@ -1,32 +1,52 @@
 [
   {
     "option": "-rejectfakeoutputs",
+    "name": "Fake output hashes and keys",
     "source": "knots#389",
     "url": "https://github.com/bitcoinknots/bitcoin/pull/389",
     "upstream": "open",
     "branch": "filter/rejectfakeoutputs",
     "commit": "34ce3a5763f2527f62135338ddf6a75d052048a3",
-    "summary": "Count outputs whose hash or key is data as data carrier bytes",
-    "since": "v29.4.2.knots20260508.plumb1"
+    "summary": "Counts outputs whose hash or key is data as data carrier bytes",
+    "since": "v29.4.2.knots20260508.plumb1",
+    "catches": "Data hidden in the hashes and keys of outputs. A real hash or x-only key looks random, so one byte value eight times in a program, a run of six identical bytes, or a taproot key that is not on the curve marks it as data, along with its same-type, same-value siblings. Three or more P2WSH outputs sharing one value of 546 sat or less also count: file encoders pay every chunk the same dust amount.",
+    "passes": "Payments to every address type, batched payments and pool payouts. The all-zero burn hash used by Stacks block commits is exempt.",
+    "example": {
+      "txid": "f93ee9d2a8d6fc0dce7889732d8e288ca64dacfe4c94c6cd76eb85037daea09c",
+      "height": 965224,
+      "note": "an ACME file, a run of P2WSH outputs at the 330 sat dust floor whose programs hold a compressed HTML file"
+    }
   },
   {
     "option": "-rejectdeadbranches",
+    "name": "Dead conditional branches",
     "source": "knots#400",
     "url": "https://github.com/bitcoinknots/bitcoin/pull/400",
     "upstream": "open",
     "branch": "filter/rejectdeadbranches",
     "commit": "e704b7a71337772ff673d092b6161c2e02ff1a70",
-    "summary": "Count data in a conditional branch that constants make unreachable",
-    "since": "v29.4.2.knots20260508.plumb1"
+    "summary": "Counts data in a conditional branch that constants make unreachable",
+    "since": "v29.4.2.knots20260508.plumb1",
+    "catches": "Data placed in a branch of a script that can never run because a constant decides the condition, such as `OP_1 OP_NOTIF <data> OP_ENDIF` or the dead side of an `OP_ELSE`. Knots already counts the `OP_FALSE OP_IF` envelope; this catches the other constant-decided forms.",
+    "passes": "Branches decided by a signature or a witness value, which is how real spending conditions branch: Lightning, timelocks, multisig recovery paths. Those are never counted.",
+    "example": {
+      "txid": "23e8f9466cd895c21a041155dba377f1a77a46cec13dcb14c430fa9c75f8786a",
+      "height": 969961,
+      "note": "a 37 KB JPEG XL image in an `OP_1 OP_NOTIF` branch"
+    }
   },
   {
     "option": "-rejectbareenvelopes",
+    "name": "Bare data envelopes",
     "source": "knots#319",
     "url": "https://github.com/bitcoinknots/bitcoin/pull/319",
     "upstream": "open",
     "branch": "filter/rejectbareenvelopes",
     "commit": "a16d9d27185ffdcce43029a0483cac52846b9729",
-    "summary": "Count a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes",
-    "since": "v29.4.2.knots20260508.plumb2"
+    "summary": "Counts a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes",
+    "since": "v29.4.2.knots20260508.plumb2",
+    "catches": "A run of data pushes dropped again with `OP_DROP` or `OP_2DROP`, the envelope shape inscriptions use when `OP_IF` is not available. The whole run counts as data, not only the last push.",
+    "passes": "Scripts that drop the result of an opcode, such as `<n> OP_CHECKSEQUENCEVERIFY OP_DROP` in timelocks. Only pushes followed by a drop count.",
+    "example": null
   }
 ]

@@ -32,12 +32,13 @@ Knots pull request, or both.
    in, then merge the branch with
    `git merge -S --no-ff filter/<name> -m "Merge knots#N: <title>"`
    (or `#N` for a pull request here).
-4. Add it to `PLUMB_FILTERS` in `src/init.cpp` and to `plumb/filters.json`
-   (option, source, url, upstream status, branch, commit, summary, the
-   release it first ships in).
-5. Add it to the list in the README and run `plumb/tools/gen-assets.py`. It
-   fails if `src/init.cpp` and `plumb/filters.json` disagree, and it rewrites
-   the badge.
+4. Add it to `PLUMB_FILTERS` in `src/init.cpp` and to `plumb/filters.json`:
+   option, a short name, source, url, upstream status, branch, commit, a
+   one-line summary, the release it first ships in, what it rejects, what it
+   leaves alone, and an example transaction from the chain.
+5. Run `plumb/tools/gen-assets.py`. It fails if `src/init.cpp` and
+   `plumb/filters.json` disagree, and it rewrites `plumb/FILTERS.md`, the
+   filter list in the README and the badge. Never edit those by hand.
 6. Build with `-Werror`, run `ctest --test-dir build` and the full functional
    suite (`build/test/functional/test_runner.py`). Nothing goes out with a
    failure.
@@ -51,8 +52,8 @@ keep shipping it. The `filter/<name>` branch is the copy we maintain from
 then on.
 
 When Knots merges a filter, it arrives with the next Knots release. Drop it
-from `PLUMB_FILTERS`, `plumb/filters.json` and the README list on that
-rebase, and delete its `filter/` branch.
+from `PLUMB_FILTERS` and `plumb/filters.json` on that rebase, rerun
+`plumb/tools/gen-assets.py`, and delete its `filter/` branch.
 
 Moving to a new Knots release
 -----------------------------

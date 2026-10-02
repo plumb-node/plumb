@@ -2,10 +2,11 @@
 # Copyright (c) 2026 The Plumb developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Regenerate the Plumb badge and the PNG surfaces.
+"""Regenerate the filter docs, the Plumb badge and the PNG surfaces.
 
 Reads plumb/filters.json, checks it against PLUMB_FILTERS in src/init.cpp,
-writes the filter badge, and renders the README header, social preview,
+writes plumb/FILTERS.md, the filter list in README.md and the filter badge,
+and renders the README header, social preview,
 X banner, avatars and favicons with rsvg-convert. Rendering needs the
 Cinzel, IBM Plex Sans and IBM Plex Mono fonts installed. Fontconfig cannot
 pick weight 600 out of the variable Cinzel font, so make a static instance
@@ -121,6 +122,78 @@ def check_init(filters):
         sys.exit(f"src/init.cpp PLUMB_FILTERS {in_init} does not match plumb/filters.json {in_json}")
 
 
+FILTERS_INTRO = """Plumb filters
+=============
+
+Generated from `plumb/filters.json` by `plumb/tools/gen-assets.py`; edit
+those, not this file.
+
+Each filter counts bytes it recognizes as data. Knots then applies its data
+carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
+any data outside an `OP_RETURN` output means the node does not relay or mine
+the transaction, and `-datacarriersize` (83 bytes by default) caps the total.
+The filters never touch block validity. A block that contains one of these
+transactions is still valid and your node still accepts it.
+
+Every filter is on by default. To turn one off, add its line with `=0` to
+`bitcoin.conf` (or pass it on the command line) and restart the node.
+`-corepolicy` turns all of them off along with the rest of the Knots policy.
+To see what is active, check the startup lines in `debug.log`:
+
+```
+grep "Plumb filter" ~/.bitcoin/debug.log
+```
+"""
+
+
+def anchor(name):
+    return re.sub(r"[^a-z0-9 -]", "", name.lower()).replace(" ", "-")
+
+
+def filters_md(filters):
+    out = [FILTERS_INTRO]
+    for f in filters:
+        num = f["source"].split("#")[1]
+        out.append(f"\n{f['name']}\n{'-' * len(f['name'])}\n")
+        out.append(f"Option `{f['option']}`, default on, from [{f['source']}]({f['url']}) "
+                   f"(upstream: {f['upstream']}), in Plumb since `{f['since']}`.\n")
+        out.append(f"**What it rejects.** {f['catches']}\n")
+        out.append(f"**What it leaves alone.** {f['passes']}\n")
+        if f.get("example"):
+            ex = f["example"]
+            out.append(f"**Example.** `{ex['txid']}` at block {ex['height']}: {ex['note']}.\n")
+        out.append(f"**Turn it off.** In `bitcoin.conf`:\n\n```\n{f['option'][1:]}=0\n```\n\n"
+                   f"or `{f['option']}=0` on the command line. The code is on the "
+                   f"[`{f['branch']}`](https://github.com/plumb-node/plumb/tree/{f['branch']}) branch "
+                   f"and in [knots#{num}]({f['url']}).\n")
+    return "\n".join(out)
+
+
+def readme_list(filters):
+    lines = []
+    for f in filters:
+        lines.append(f"- **[{f['name']}](plumb/FILTERS.md#{anchor(f['name'])})**, `{f['option']}`, "
+                     f"from [{f['source']}]({f['url']}): {f['summary'][0].lower()}{f['summary'][1:]}.")
+    lines.append("\nEvery filter is on by default and is its own option. [plumb/FILTERS.md](plumb/FILTERS.md)\n"
+                 "says what each one rejects and leaves alone, with an example transaction and\n"
+                 "the line that turns it off. `-corepolicy` turns all of them off along with the\n"
+                 "rest of the Knots policy. The node logs which filters are active at startup:\n\n```")
+    lines += [f"Plumb filter {f['option']}=1 ({f['source']})" for f in filters]
+    lines.append("```")
+    return "\n".join(lines)
+
+
+def write_readme(filters):
+    path = ROOT / "README.md"
+    text = path.read_text()
+    start, end = "<!-- filters:start -->\n", "<!-- filters:end -->\n"
+    if start not in text or end not in text:
+        sys.exit("README.md is missing the filters:start/filters:end markers")
+    head, rest = text.split(start, 1)
+    _, tail = rest.split(end, 1)
+    path.write_text(head + start + readme_list(filters) + "\n" + end + tail)
+
+
 def render(src, dest, width, height=None):
     cmd = ["rsvg-convert", "-w", str(width)]
     if height:
@@ -132,6 +205,8 @@ def main():
     filters = json.loads((ROOT / "plumb" / "filters.json").read_text())
     check_init(filters)
     (ASSETS / "badge-filters.svg").write_text(badge(len(filters)))
+    (ROOT / "plumb" / "FILTERS.md").write_text(filters_md(filters))
+    write_readme(filters)
 
     PNG.mkdir(exist_ok=True)
     sources = {
