@@ -1,0 +1,38 @@
+name: Propose a filter
+description: A spam shape you want Plumb to refuse, or a Knots filter PR you want reviewed.
+labels: [filter]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Have the code?** Open a [pull request](https://github.com/plumb-node/plumb/compare) instead; that is how a filter gets in. The bar is in the README under [Submitting a filter](https://github.com/plumb-node/plumb#submitting-a-filter): its own option, default on, turned off by `-corepolicy`; tests; numbers from the chain; and a check that it leaves real payments alone.
+
+        Use this form to propose a filter without code, or to point us at one that is open against Knots.
+  - type: input
+    id: knots-pr
+    attributes:
+      label: Knots pull request, if there is one
+      placeholder: https://github.com/bitcoinknots/bitcoin/pull/...
+    validations:
+      required: false
+  - type: textarea
+    id: shape
+    attributes:
+      label: What it should refuse
+      description: How the data is carried, and what tells it apart from a payment.
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example transactions
+      description: One txid per line, with the block height if you have it.
+    validations:
+      required: true
+  - type: textarea
+    id: leaves-alone
+    attributes:
+      label: What it must leave alone
+      description: The real payments that look closest to this shape, and how the filter tells them apart.
+    validations:
+      required: false

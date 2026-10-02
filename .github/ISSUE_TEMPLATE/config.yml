@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Submit a filter (pull request)
+    url: https://github.com/plumb-node/plumb/compare
+    about: Filters with code come in as pull requests; the bar is in the README
   - name: Plumb security policy
     url: https://github.com/plumb-node/plumb/security/policy
     about: Report security issues privately
