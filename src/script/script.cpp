@@ -356,7 +356,7 @@ size_t CScript::OPNetWitnessSize(const CScriptWitness& witness) const
     return stack[0].size() + stack[3].size() - deduct;
 }
 
-std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness) const
+std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness, const bool bare_envelopes) const
 {
     if (size_t olga_bytes = IsOLGA(remaining_outputs); olga_bytes) {
         return {0, olga_bytes};
@@ -372,7 +372,8 @@ std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outpu
     opcodetype opcode, last_opcode{OP_INVALIDOPCODE};
     std::vector<unsigned char> push_data;
     unsigned int inside_noop{0}, inside_conditional{0};
-    auto is_push = [](opcodetype op) { return op <= OP_16 && op != OP_RESERVED; };  // OP_0..OP_16 push data/numbers
+    // With bare_envelopes, pushnums join a data run and OP_2DROP ends one; without it, only <data> OP_DROP counts
+    auto is_push = [bare_envelopes](opcodetype op) { return bare_envelopes ? op <= OP_16 && op != OP_RESERVED : op <= OP_PUSHDATA4; };
     CScript::const_iterator opcode_it = begin(), data_began = begin();
     for (CScript::const_iterator it = begin(); it < end(); last_opcode = opcode) {
         opcode_it = it;
@@ -409,8 +410,8 @@ std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outpu
             data_began = opcode_it;
         // Match <data> OP_DROP, or a run of <data>/pushnums ... OP_DROP/OP_2DROP (bare/BIP-110 envelope)
         } else if (is_push(opcode)) {
-            if (!is_push(last_opcode)) data_began = opcode_it;  // only reset at the start of a push run
-        } else if ((opcode == OP_DROP || opcode == OP_2DROP) && is_push(last_opcode)) {
+            if (!bare_envelopes || !is_push(last_opcode)) data_began = opcode_it;  // only reset at the start of a push run
+        } else if ((opcode == OP_DROP || (bare_envelopes && opcode == OP_2DROP)) && is_push(last_opcode)) {
             counted += it - data_began;
         }
     }

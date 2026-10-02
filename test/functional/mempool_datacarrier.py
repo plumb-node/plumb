@@ -30,12 +30,13 @@ from random import randbytes
 
 class DataCarrierTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.num_nodes = 4
+        self.num_nodes = 5
         self.extra_args = [
-            ["-acceptnonstddatacarrier=1", "-datacarrierfullcount"],
+            ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes"],
             ["-datacarrier=0"],
             ["-datacarrier=1", f"-datacarriersize={MAX_OP_RETURN_RELAY - 1}"],
             ["-datacarrier=1", "-datacarriersize=2", "-acceptnonstddatacarrier=1", "-datacarrierfullcount"],
+            ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes=0"],
         ]
 
     def test_null_data_transaction(self, node: TestNode, data, success: bool) -> None:
@@ -196,6 +197,9 @@ class DataCarrierTest(BitcoinTestFramework):
 
         self.log.info("Testing a bare envelope with a pushnum interleaved in the push run.")
         self.test_bare_envelope(node=self.nodes[0], data_len=MAX_OP_RETURN_RELAY, success=False, interleave_pushnum=True)
+
+        self.log.info("Testing that -rejectbareenvelopes=0 lets the large bare envelope through.")
+        self.test_bare_envelope(node=self.nodes[4], data_len=MAX_OP_RETURN_RELAY, success=True)
 
 
 if __name__ == '__main__':
