@@ -70,6 +70,8 @@ Option `-rejectbareenvelopes`, default on, from [knots#319](https://github.com/b
 
 **What it leaves alone.** Scripts that drop the result of an opcode, such as `<n> OP_CHECKSEQUENCEVERIFY OP_DROP` in timelocks. Only pushes followed by a drop count.
 
+**Example.** `19782e5ae1ea872b2231f92400311e7e2f6d8259c4c0ecf18f056b977279d9eb` at block 963670: an 87 KB JPEG inscription in an ord envelope ended by `OP_2DROP`.
+
 **Turn it off.** In `bitcoin.conf`:
 
 ```

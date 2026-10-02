@@ -47,6 +47,10 @@
     "since": "v29.4.2.knots20260508.plumb2",
     "catches": "A run of data pushes dropped again with `OP_DROP` or `OP_2DROP`, the envelope shape inscriptions use when `OP_IF` is not available. The whole run counts as data, not only the last push.",
     "passes": "Scripts that drop the result of an opcode, such as `<n> OP_CHECKSEQUENCEVERIFY OP_DROP` in timelocks. Only pushes followed by a drop count.",
-    "example": null
+    "example": {
+      "txid": "19782e5ae1ea872b2231f92400311e7e2f6d8259c4c0ecf18f056b977279d9eb",
+      "height": 963670,
+      "note": "an 87 KB JPEG inscription in an ord envelope ended by `OP_2DROP`"
+    }
   }
 ]
