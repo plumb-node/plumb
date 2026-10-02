@@ -159,6 +159,8 @@ def filters_md(filters):
                    f"(upstream: {f['upstream']}), in Plumb since `{f['since']}`.\n")
         out.append(f"**What it rejects.** {f['catches']}\n")
         out.append(f"**What it leaves alone.** {f['passes']}\n")
+        if f.get("cost"):
+            out.append(f"**Known cost.** {f['cost']}\n")
         if f.get("example"):
             ex = f["example"]
             out.append(f"**Example.** `{ex['txid']}` at block {ex['height']}: {ex['note']}.\n")
