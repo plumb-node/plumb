@@ -92,8 +92,12 @@ ACK there. It is merged at the commit that was ACKed and kept on its own
 goes away. If the author stops maintaining it, we carry it forward to each
 new Knots release ourselves.
 
-Found a new embedding shape but have no code for it? Open an issue with the
-"Embedding shape" form and a transaction id or two.
+To submit one, [open a pull request](https://github.com/plumb-node/plumb/compare).
+No code yet, or a filter open against Knots you want us to look at? Use the
+[Propose a filter](https://github.com/plumb-node/plumb/issues/new?template=propose-filter.yml)
+form. Found a new embedding shape and only have a transaction id or two? Use
+the [Embedding shape](https://github.com/plumb-node/plumb/issues/new?template=embedding.yml)
+form.
 
 See [plumb/MAINTAINING.md](plumb/MAINTAINING.md) for the merge and release
 process.
