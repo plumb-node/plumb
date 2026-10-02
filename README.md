@@ -23,6 +23,7 @@ What Plumb ships
 - **[Fake output hashes and keys](plumb/FILTERS.md#fake-output-hashes-and-keys)**, `-rejectfakeoutputs`, from [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389): counts outputs whose hash or key is data as data carrier bytes.
 - **[Dead conditional branches](plumb/FILTERS.md#dead-conditional-branches)**, `-rejectdeadbranches`, from [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400): counts data in a conditional branch that constants make unreachable.
 - **[Bare data envelopes](plumb/FILTERS.md#bare-data-envelopes)**, `-rejectbareenvelopes`, from [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319): counts a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes.
+- **[Fake multisig keys](plumb/FILTERS.md#fake-multisig-keys)**, `-rejectfakemultisig`, from [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422): counts the keys of a multisig that no signature in the spend proves, beyond 10 per script, as data carrier bytes.
 
 Every filter is on by default and is its own option. [plumb/FILTERS.md](plumb/FILTERS.md)
 says what each one rejects and leaves alone, with an example transaction and
@@ -33,6 +34,7 @@ rest of the Knots policy. The node logs which filters are active at startup:
 Plumb filter -rejectfakeoutputs=1 (knots#389)
 Plumb filter -rejectdeadbranches=1 (knots#400)
 Plumb filter -rejectbareenvelopes=1 (knots#319)
+Plumb filter -rejectfakemultisig=1 (knots#422)
 ```
 <!-- filters:end -->
 
