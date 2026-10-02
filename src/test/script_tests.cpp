@@ -1624,14 +1624,14 @@ BOOST_AUTO_TEST_CASE(script_HasValidOps)
     BOOST_CHECK(!script.HasValidOps());
 }
 
-static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool bare_envelopes = true) {
-    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, bare_envelopes);
+static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool bare_envelopes = true, const bool fake_multisig = true) {
+    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, bare_envelopes, fake_multisig);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
 static std::string DatacarrierBytesStr(const CScript& script, const CScriptWitness& witness)
 {
-    auto dcb = script.DatacarrierBytes(0, &witness);
+    auto dcb = script.DatacarrierBytes(0, &witness, /*bare_envelopes=*/true, /*fake_multisig=*/true);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
@@ -1748,6 +1748,24 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_unproven_pubkeys)
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15)));
     // Uncompressed keys carry no more payload, so they are charged the same
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15, 65)));
+    // A plain 4-of-12 leaves eight keys unsigned, within the allowance
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(4, 12)));
+    // The widest real wallet since the fork: a 2-of-3 with a timelocked 2-of-3 and a 3-of-6
+    // behind it, 12 keys, spent with two signatures and empty ones for the branches it skips
+    {
+        CScript vault{MultisigScript(2, 3)};
+        vault << OP_NOTIF << 2;
+        for (int i{0}; i < 3; ++i) vault << std::vector<unsigned char>(33, 2);
+        vault << 3 << OP_CHECKMULTISIGVERIFY << 4014 << OP_CHECKSEQUENCEVERIFY << OP_ELSE << 3;
+        for (int i{0}; i < 6; ++i) vault << std::vector<unsigned char>(33, 3);
+        vault << 6 << OP_CHECKMULTISIG << OP_ENDIF;
+        CScriptWitness spend{MultisigWitness(2, vault)};
+        BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(vault, spend));
+    }
+    // -rejectfakemultisig=0 charges no keys at all
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(1, 15), 0, /*bare_envelopes=*/true, /*fake_multisig=*/false));
+    // With -rejectbareenvelopes=0 a dropped key is still counted once, by the drop rule
+    BOOST_CHECK_EQUAL("0+35", DatacarrierBytesStr(CScript() << zeros(33) << OP_DROP, 0, /*bare_envelopes=*/false));
 
     // Naming signatures the spend does not offer earns nothing: OP_CHECKSIG in a branch that
     // never runs would otherwise buy off the whole count for one byte each
@@ -1803,8 +1821,8 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_tapscript_unproven_pubkeys)
 
     // The same payload costs the same whichever way it is written. A 1-of-15 under P2WSH and
     // the taproot leaf that says the same thing are charged alike, where once the leaf was free
-    BOOST_CHECK_EQUAL("396+0", DatacarrierBytesStr(MultisigScript(1, 15), MultisigWitness(1, MultisigScript(1, 15))));
-    BOOST_CHECK_EQUAL("396+0", DatacarrierBytesStr(MultiAScript(1, 15), TapscriptWitness(1, 15, MultiAScript(1, 15))));
+    BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15), MultisigWitness(1, MultisigScript(1, 15))));
+    BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultiAScript(1, 15), TapscriptWitness(1, 15, MultiAScript(1, 15))));
 
     // An x-only key a signature is offered for is a spending condition, not data
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(CScript() << zeros(32) << OP_CHECKSIG));
@@ -1816,12 +1834,12 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_tapscript_unproven_pubkeys)
                           DatacarrierBytesStr(script, TapscriptWitness(k, n, script)));
     }
     // Past the tolerance every further key is payload, however honest the spend that offers it
-    BOOST_CHECK_EQUAL("33+0", DatacarrierBytesStr(MultiAScript(1, 4), TapscriptWitness(1, 4, MultiAScript(1, 4))));
-    BOOST_CHECK_EQUAL("66+0", DatacarrierBytesStr(MultiAScript(1, 5), TapscriptWitness(1, 5, MultiAScript(1, 5))));
-    BOOST_CHECK_EQUAL("66+0", DatacarrierBytesStr(MultiAScript(11, 15), TapscriptWitness(11, 15, MultiAScript(11, 15))));
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultiAScript(1, 4), TapscriptWitness(1, 4, MultiAScript(1, 4))));
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultiAScript(1, 5), TapscriptWitness(1, 5, MultiAScript(1, 5))));
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultiAScript(11, 15), TapscriptWitness(11, 15, MultiAScript(11, 15))));
     // Above 16 the key count is a minimal push rather than an OP_N, and still counts. A leaf may
     // hold far more keys than OP_CHECKMULTISIG, so it is read up to MAX_PUBKEYS_PER_MULTI_A
-    BOOST_CHECK_EQUAL("33+0", DatacarrierBytesStr(MultiAScript(17, 20), TapscriptWitness(17, 20, MultiAScript(17, 20))));
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultiAScript(17, 20), TapscriptWitness(17, 20, MultiAScript(17, 20))));
     // The credit is the shape of the run, not the size of its keys: a leaf may hold either
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultiAScript(3, 5, 33), TapscriptWitness(3, 5, MultiAScript(3, 5, 33))));
     // A run closed by OP_NUMEQUALVERIFY says the same thing as one closed by OP_NUMEQUAL
@@ -1842,7 +1860,7 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_tapscript_unproven_pubkeys)
         padded << zeros(32) << OP_NOP << OP_CHECKSIGADD;
     }
     padded << 11 << OP_NUMEQUAL;
-    BOOST_CHECK_EQUAL("396+0", DatacarrierBytesStr(padded, TapscriptWitness(11, 15, padded)));
+    BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(padded, TapscriptWitness(11, 15, padded)));
     // ... while an OP_NOP does not hide the key beneath it from the opcode that spends it
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(CScript() << zeros(32) << OP_NOP << OP_CHECKSIG));
 
@@ -1852,12 +1870,12 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_tapscript_unproven_pubkeys)
         inflated << zeros(32) << OP_CHECKSIGADD;
     }
     inflated << 20 << OP_NUMEQUAL;
-    BOOST_CHECK_EQUAL("396+0", DatacarrierBytesStr(inflated, TapscriptWitness(11, 15, inflated)));
+    BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(inflated, TapscriptWitness(11, 15, inflated)));
 
     // The OP_CHECKSIG a run opens on credits one of the k already, so a 1-of-n is credited once
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultiAScript(1, 3), TapscriptWitness(1, 3, MultiAScript(1, 3))));
     // Naming more signatures than the spend offers earns nothing here as it does elsewhere
-    BOOST_CHECK_EQUAL("396+0", DatacarrierBytesStr(MultiAScript(11, 15), TapscriptWitness(1, 15, MultiAScript(11, 15))));
+    BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultiAScript(11, 15), TapscriptWitness(1, 15, MultiAScript(11, 15))));
 
     // A key inside an OP_FALSE OP_IF envelope is counted with the envelope, once
     BOOST_CHECK_EQUAL("0+37", DatacarrierBytesStr(CScript() << OP_FALSE << OP_IF << zeros(32)

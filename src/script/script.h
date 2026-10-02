@@ -579,7 +579,7 @@ public:
 
     size_t OPNetWitnessSize(const CScriptWitness& witness) const;
     size_t IsOLGA(size_t remaining_outputs) const;
-    std::pair<size_t, size_t> DatacarrierBytes(size_t remaining_outputs, const CScriptWitness* witness = nullptr, bool bare_envelopes = false) const;
+    std::pair<size_t, size_t> DatacarrierBytes(size_t remaining_outputs, const CScriptWitness* witness = nullptr, bool bare_envelopes = false, bool fake_multisig = false) const;
 
     void clear()
     {
