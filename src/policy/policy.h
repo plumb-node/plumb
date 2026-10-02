@@ -66,6 +66,8 @@ static constexpr unsigned int DEFAULT_BYTES_PER_SIGOP_STRICT{20};
 static constexpr unsigned int DEFAULT_WEIGHT_PER_DATA_BYTE{4};
 /** Default for -rejectdeadbranches */
 static constexpr bool DEFAULT_REJECT_DEAD_BRANCHES{true};
+/** Default for -rejectbareenvelopes */
+static constexpr bool DEFAULT_REJECT_BARE_ENVELOPES{true};
 /** Default for -rejecttokens */
 static constexpr bool DEFAULT_REJECT_TOKENS{true};
 /** Default for -rejectfakeoutputs */
