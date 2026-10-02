@@ -1624,14 +1624,14 @@ BOOST_AUTO_TEST_CASE(script_HasValidOps)
     BOOST_CHECK(!script.HasValidOps());
 }
 
-static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool dead_branches = true, const bool bare_envelopes = true) {
-    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches, bare_envelopes);
+static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool dead_branches = true, const bool bare_envelopes = true, const bool fake_multisig = true) {
+    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches, bare_envelopes, fake_multisig);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
 static std::string DatacarrierBytesStr(const CScript& script, const CScriptWitness& witness)
 {
-    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*bare_envelopes=*/true);
+    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*bare_envelopes=*/true, /*fake_multisig=*/true);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
@@ -1828,6 +1828,24 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_unproven_pubkeys)
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15)));
     // Uncompressed keys carry no more payload, so they are charged the same
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15, 65)));
+    // A plain 4-of-12 leaves eight keys unsigned, within the allowance
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(4, 12)));
+    // The widest real wallet since the fork: a 2-of-3 with a timelocked 2-of-3 and a 3-of-6
+    // behind it, 12 keys, spent with two signatures and empty ones for the branches it skips
+    {
+        CScript vault{MultisigScript(2, 3)};
+        vault << OP_NOTIF << 2;
+        for (int i{0}; i < 3; ++i) vault << std::vector<unsigned char>(33, 2);
+        vault << 3 << OP_CHECKMULTISIGVERIFY << 4014 << OP_CHECKSEQUENCEVERIFY << OP_ELSE << 3;
+        for (int i{0}; i < 6; ++i) vault << std::vector<unsigned char>(33, 3);
+        vault << 6 << OP_CHECKMULTISIG << OP_ENDIF;
+        CScriptWitness spend{MultisigWitness(2, vault)};
+        BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(vault, spend));
+    }
+    // -rejectfakemultisig=0 charges no keys at all
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(1, 15), 0, /*dead_branches=*/true, /*bare_envelopes=*/true, /*fake_multisig=*/false));
+    // With -rejectbareenvelopes=0 a dropped key is still counted once, by the drop rule
+    BOOST_CHECK_EQUAL("0+35", DatacarrierBytesStr(CScript() << zeros(33) << OP_DROP, 0, /*dead_branches=*/true, /*bare_envelopes=*/false));
 
     // Naming signatures the spend does not offer earns nothing: OP_CHECKSIG in a branch that
     // never runs would otherwise buy off the whole count for one byte each
