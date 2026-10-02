@@ -919,7 +919,7 @@ static size_t OddRunBytes(const size_t run_bytes, const size_t last_bytes, const
  * the charge is the larger of the two, so knowing more can only ever add to it. Odd pushes are no key
  * under either guess, so they are counted as data the same way regardless.
  */
-static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* witness, const VerifiedKeys* verified_keys)
+static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* witness, const VerifiedKeys* verified_keys, const bool bare_envelopes)
 {
     /** Unproven pubkeys a script may carry before the rest are counted as data. Set so that ordinary
      *  multisig, including wide federations, is charged nothing at all: the budget is per
@@ -940,7 +940,7 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
     size_t multi_a_keys{0};
     int run_opened_by{-1}, last_count{-1}, last_a_count{-1};
     unsigned int inside_noop{0};
-    bool last_is_push{false};
+    bool last_is_push{false}, last_is_pubkey{false};
     // Whether the item before this one was a key a checksig-family opcode can still claim, and
     // whether it was the 32 byte kind that is only a key because one does.
     bool last_is_key{false}, last_is_xonly{false}, last_is_verified{false};
@@ -1018,9 +1018,15 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
             run_keys = 0;
             is_key = true;
         } else if ((opcode == OP_DROP || opcode == OP_2DROP) && last_is_push) {
-            // The caller counts the whole run as dropped data, so do not charge it again.
-            pubkeys -= push_run_keys;
-            unverified_bytes -= push_run_unverified_bytes;
+            // The caller counts dropped pushes as data, so do not charge them again: the whole
+            // run with -rejectbareenvelopes, only the last push before an OP_DROP without it.
+            if (bare_envelopes) {
+                pubkeys -= push_run_keys;
+                unverified_bytes -= push_run_unverified_bytes;
+            } else if (opcode == OP_DROP && last_is_pubkey) {
+                --pubkeys;
+                if (!last_is_verified) unverified_bytes -= last_key_size;
+            }
             run_keys = 0;
             multi_a_keys = 0;
         } else if (opcode == OP_CHECKSIG || opcode == OP_CHECKSIGVERIFY) {
@@ -1104,6 +1110,7 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
         last_count = count;
         last_a_count = a_count;
         last_is_push = is_push;
+        last_is_pubkey = is_pubkey && !inside_noop;
     }
 
     // A script can name more signatures than the spender supplies, including in branches that
@@ -1142,7 +1149,7 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
     return std::max(static_charge, verified_charge);
 }
 
-std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness, const bool dead_branches, const VerifiedKeys* verified_keys, bool* reached_normal_return, const bool bare_envelopes) const
+std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness, const bool dead_branches, const VerifiedKeys* verified_keys, bool* reached_normal_return, const bool bare_envelopes, const bool fake_multisig) const
 {
     // Cleared here and set just before the normal return, so every early return below leaves it false.
     if (reached_normal_return) *reached_normal_return = false;
@@ -1230,10 +1237,10 @@ std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outpu
         }
     }
     if (reached_normal_return) *reached_normal_return = true;
-    return {UnprovenPubkeyBytes(*this, witness, verified_keys), counted};
+    return {fake_multisig ? UnprovenPubkeyBytes(*this, witness, verified_keys, bare_envelopes) : 0, counted};
 }
 
-std::pair<size_t, size_t> CScript::DatacarrierBytesReusing(const size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, const size_t counted) const
+std::pair<size_t, size_t> CScript::DatacarrierBytesReusing(const size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, const size_t counted, const bool bare_envelopes, const bool fake_multisig) const
 {
     // The same early returns as DatacarrierBytes, which the verified keys cannot change. The caller only
     // reuses counted for a script that reached DatacarrierBytes's normal return, so the dead-branch scan
@@ -1246,7 +1253,7 @@ std::pair<size_t, size_t> CScript::DatacarrierBytesReusing(const size_t remainin
             return {0, opnet_bytes};
         }
     }
-    return {UnprovenPubkeyBytes(*this, witness, verified_keys), counted};
+    return {fake_multisig ? UnprovenPubkeyBytes(*this, witness, verified_keys, bare_envelopes) : 0, counted};
 }
 
 bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator end, opcodetype& opcodeRet, std::vector<unsigned char>* pvchRet)
