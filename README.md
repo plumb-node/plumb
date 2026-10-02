@@ -19,27 +19,22 @@ Knots at any time.
 What Plumb ships
 ----------------
 
-- **`-rejectfakeoutputs`** (default on, from
-  [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389)): counts
-  outputs whose hash or key is data as data carrier bytes.
-- **`-rejectdeadbranches`** (default on, from
-  [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400)): counts data
-  in a conditional branch that constants make unreachable.
-- **`-rejectbareenvelopes`** (default on, from
-  [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319)): counts a
-  run of pushes ended by `OP_DROP` or `OP_2DROP` as data carrier bytes, the
-  envelope shape that needs no `OP_IF`.
+<!-- filters:start -->
+- **[Fake output hashes and keys](plumb/FILTERS.md#fake-output-hashes-and-keys)**, `-rejectfakeoutputs`, from [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389): counts outputs whose hash or key is data as data carrier bytes.
+- **[Dead conditional branches](plumb/FILTERS.md#dead-conditional-branches)**, `-rejectdeadbranches`, from [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400): counts data in a conditional branch that constants make unreachable.
+- **[Bare data envelopes](plumb/FILTERS.md#bare-data-envelopes)**, `-rejectbareenvelopes`, from [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319): counts a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes.
 
-Each filter is its own option. Turn one off with `-rejectfakeoutputs=0` (or
-the same line in `bitcoin.conf`). `-corepolicy` turns all of them off along
-with the rest of the Knots policy. The node logs which filters are active at
-startup:
+Every filter is on by default and is its own option. [plumb/FILTERS.md](plumb/FILTERS.md)
+says what each one rejects and leaves alone, with an example transaction and
+the line that turns it off. `-corepolicy` turns all of them off along with the
+rest of the Knots policy. The node logs which filters are active at startup:
 
 ```
 Plumb filter -rejectfakeoutputs=1 (knots#389)
 Plumb filter -rejectdeadbranches=1 (knots#400)
 Plumb filter -rejectbareenvelopes=1 (knots#319)
 ```
+<!-- filters:end -->
 
 The machine-readable list is [plumb/filters.json](plumb/filters.json), with
 the exact commit of each pull request that was merged.
