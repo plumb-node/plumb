@@ -99,7 +99,12 @@ FUZZ_TARGET(script, .init = initialize_script)
             witness.stack.push_back(ConsumeRandomLengthByteVector(fuzzed_data_provider));
         }
         (void)script.DatacarrierBytes(fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, 4),
-                                      witness.stack.empty() ? nullptr : &witness);
+                                      witness.stack.empty() ? nullptr : &witness,
+                                      /*dead_branches=*/fuzzed_data_provider.ConsumeBool(),
+                                      /*verified_keys=*/nullptr,
+                                      /*reached_normal_return=*/nullptr,
+                                      /*bare_envelopes=*/fuzzed_data_provider.ConsumeBool(),
+                                      /*fake_multisig=*/fuzzed_data_provider.ConsumeBool());
     }
     (void)script.HasValidOps();
     (void)script.IsPayToAnchor();
