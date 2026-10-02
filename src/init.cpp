@@ -770,6 +770,7 @@ void SetupServerArgs(ArgsManager& argsman, bool can_listen_ipc)
                    ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-minrelaytxfee=<amt>", strprintf("Fees (in %s/kvB) smaller than this are considered zero fee for relaying, mining and transaction creation (default: %s)",
         CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
+    argsman.AddArg("-rejectbareenvelopes", strprintf("Count a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes, the envelope shape that needs no OP_IF (default: %u)", DEFAULT_REJECT_BARE_ENVELOPES), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejectparasites", strprintf("Refuse to relay or mine parasitic overlay protocols (default: %u)", DEFAULT_REJECT_PARASITES), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejecttokens",
                    strprintf("Refuse to relay or mine transactions involving non-bitcoin tokens (default: %u)",
@@ -878,6 +879,7 @@ void InitParameterInteraction(ArgsManager& args)
         args.SoftSetArg("-permitbarepubkey", "1");
         args.SoftSetArg("-permitbaremultisig", "1");
         args.SoftSetArg("-rejectparasites", "0");
+        args.SoftSetArg("-rejectbareenvelopes", "0");
         args.SoftSetArg("-rejecttokens", "0");
         args.SoftSetArg("-rejectfakeoutputs", "0");
         args.SoftSetArg("-subdustfeepenalty", "0");
@@ -1257,6 +1259,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     g_script_size_policy_limit = args.GetIntArg("-maxscriptsize", g_script_size_policy_limit);
 
     g_reject_dead_branches = args.GetBoolArg("-rejectdeadbranches", g_reject_dead_branches);
+    g_reject_bare_envelopes = args.GetBoolArg("-rejectbareenvelopes", g_reject_bare_envelopes);
 
     nBytesPerSigOp = args.GetIntArg("-bytespersigop", nBytesPerSigOp);
     nBytesPerSigOpStrict = args.GetIntArg("-bytespersigopstrict", nBytesPerSigOpStrict);

@@ -37,6 +37,7 @@
 
 unsigned int g_script_size_policy_limit{DEFAULT_SCRIPT_SIZE_POLICY_LIMIT};
 bool g_reject_dead_branches{DEFAULT_REJECT_DEAD_BRANCHES};
+bool g_reject_bare_envelopes{DEFAULT_REJECT_BARE_ENVELOPES};
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
@@ -751,13 +752,13 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
     for (const CTxIn& txin : tx.vin) {
         const CTxOut &utxo = view.AccessCoin(txin.prevout).out;
         auto[script, consensus_weight_per_byte] = GetScriptForTransactionInput(utxo.scriptPubKey, txin);
-        const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, ::g_reject_dead_branches);
+        const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, ::g_reject_dead_branches, ::g_reject_bare_envelopes);
         ret.first += dcb.first;
         ret.second += dcb.second;
     }
     for (size_t i{tx.vout.size()}; i; ) {
         const CTxOut& txout = tx.vout[--i];
-        const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i);
+        const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i, nullptr, false, ::g_reject_bare_envelopes);
         ret.first += dcb.first;
         // An OLGA header counts its whole payload, so keep the larger figure
         ret.second += std::max(dcb.second, data_outputs[i]);
@@ -776,14 +777,14 @@ int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& vi
             const CTxOut &utxo = view.AccessCoin(txin.prevout).out;
             auto[script, consensus_weight_per_byte] = GetScriptForTransactionInput(utxo.scriptPubKey, txin);
             if (weight_per_data_byte > consensus_weight_per_byte) {
-                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, ::g_reject_dead_branches);
+                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, ::g_reject_dead_branches, ::g_reject_bare_envelopes);
                 mod_weight += int64_t(dcb.first + dcb.second) * (weight_per_data_byte - consensus_weight_per_byte);
             }
         }
         if (weight_per_data_byte > WITNESS_SCALE_FACTOR) {
             for (size_t i{tx.vout.size()}; i; ) {
                 const CTxOut& txout = tx.vout[--i];
-                const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i);
+                const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i, nullptr, false, ::g_reject_bare_envelopes);
                 mod_weight += int64_t(std::max(dcb.first + dcb.second, data_outputs[i])) * (weight_per_data_byte - WITNESS_SCALE_FACTOR);
             }
         }

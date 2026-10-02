@@ -1073,8 +1073,10 @@ def spenders_taproot_active():
     add_spender(spenders, "tapscript/emptysigs/checksig", leaf="t12", **common, inputs=[b'', getter("sign")], failure={"leaf": "t13"}, **ERR_UNKNOWN_PUBKEY)
     add_spender(spenders, "tapscript/emptysigs/nochecksigverify", leaf="t12", **common, inputs=[b'', getter("sign")], failure={"leaf": "t20"}, **ERR_UNKNOWN_PUBKEY)
     add_spender(spenders, "tapscript/emptysigs/checksigadd", leaf="t14", **common, inputs=[b'', getter("sign")], failure={"leaf": "t15"}, **ERR_UNKNOWN_PUBKEY)
-    # Test that scripts over 10000 bytes (and over 201 non-push ops) are acceptable.
-    add_spender(spenders, "tapscript/no10000limit", leaf="t19", **SINGLE_SIG, **common)
+    # Test that scripts over 10000 bytes (and over 201 non-push ops) are acceptable by consensus.
+    # The leaf opens with 10001 repeats of OP_0 OP_0 OP_2DROP, which datacarrier policy counts as
+    # a data envelope, so it is only spendable in a block rather than through the mempool.
+    add_spender(spenders, "tapscript/no10000limit", leaf="t19", standard=False, **SINGLE_SIG, **common)
     # Test that a stack size of 1000 elements is permitted, but 1001 isn't.
     add_spender(spenders, "tapscript/1000stack", leaf="t21", **SINGLE_SIG, **common, failure={"leaf": "t22"}, **ERR_STACK_SIZE)
     # Test that an input stack size of 1000 elements is permitted, but 1001 isn't.
@@ -1387,7 +1389,7 @@ class TaprootTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [["-datacarrierfullcount"]]
+        self.extra_args = [["-datacarrierfullcount", "-rejectbareenvelopes"]]
 
     def block_submit(self, node, txs, msg, err_msg, cb_pubkey=None, fees=0, sigops_weight=0, witness=False, accept=False):
 

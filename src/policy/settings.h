@@ -6,6 +6,7 @@
 #ifndef BITCOIN_POLICY_SETTINGS_H
 #define BITCOIN_POLICY_SETTINGS_H
 
+extern bool g_reject_bare_envelopes;
 extern unsigned int g_script_size_policy_limit;
 extern unsigned int nBytesPerSigOp;
 extern unsigned int nBytesPerSigOpStrict;
