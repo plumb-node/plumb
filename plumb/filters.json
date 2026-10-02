@@ -60,7 +60,7 @@
     "url": "https://github.com/bitcoinknots/bitcoin/pull/422",
     "upstream": "open",
     "branch": "filter/rejectfakemultisig",
-    "commit": "a9f26af73be96b7928bb032c3afe039cf6083326",
+    "commit": "a6db31229e0499533a3b86f1c92e1d99408c1a77",
     "summary": "Counts the keys of a multisig that no signature in the spend proves, beyond 10 per script, as data carrier bytes",
     "since": "v29.4.2.knots20260508.plumb3",
     "catches": "File chunks dressed as public keys: a 1-of-15 multisig where one key signs and the other 14 each carry 31 bytes of a file. Keys that no signature in the spend can prove, beyond ten per script, count as data. Covers P2WSH, P2SH and tapscript `multi_a`.",
