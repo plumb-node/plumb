@@ -37,11 +37,11 @@ class DataCarrierTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 5
         self.extra_args = [
-            ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes"],
+            ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes", "-rejectfakemultisig"],
             ["-datacarrier=0"],
             ["-datacarrier=1", f"-datacarriersize={MAX_OP_RETURN_RELAY - 1}"],
-            ["-datacarrier=1", "-datacarriersize=2", "-acceptnonstddatacarrier=1", "-datacarrierfullcount"],
-            ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes=0"],
+            ["-datacarrier=1", "-datacarriersize=2", "-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectfakemultisig"],
+            ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes=0", "-rejectfakemultisig=0"],
         ]
 
     def test_null_data_transaction(self, node: TestNode, data, success: bool) -> None:
@@ -305,6 +305,9 @@ class DataCarrierTest(BitcoinTestFramework):
 
         self.log.info("Testing that -rejectbareenvelopes=0 lets the large bare envelope through.")
         self.test_bare_envelope(node=self.nodes[4], data_len=MAX_OP_RETURN_RELAY, success=True)
+
+        self.log.info("Testing that -rejectfakemultisig=0 lets the padded multisig through.")
+        self.test_unproven_pubkeys_transaction(node=self.nodes[4], m=1, n=15, success=True)
 
 
 if __name__ == '__main__':
