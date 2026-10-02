@@ -43,13 +43,13 @@ Getting it
 ----------
 
 Plumb is distributed as source. Releases are signed git tags named after the
-Knots release they are built on, for example `v29.4.2.knots20260508.plumb1`.
+Knots release they are built on, for example `v29.4.2.knots20260508.plumb2`.
 
 ```sh
 git clone https://github.com/plumb-node/plumb
 cd plumb
-git checkout v29.4.2.knots20260508.plumb1
-git verify-tag v29.4.2.knots20260508.plumb1
+git checkout v29.4.2.knots20260508.plumb2
+git verify-tag v29.4.2.knots20260508.plumb2
 cmake -B build -DBUILD_GUI=OFF
 cmake --build build -j"$(nproc)"
 ```
