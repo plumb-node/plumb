@@ -128,3 +128,23 @@ rejecttokenmessages=0
 ```
 
 or `-rejecttokenmessages=0` on the command line. The code is on the [`filter/rejecttokenmessages`](https://github.com/plumb-node/plumb/tree/filter/rejecttokenmessages) branch and in [plumb#2](https://github.com/plumb-node/plumb/pull/2).
+
+
+Lower data limits
+-----------------
+
+`-datacarriersize` and `-datacarrier` are Knots options and work the same way
+on Plumb. Lowering them refuses more transactions, most of them carrying a
+cross-chain swap or bridge memo. Measured over every non-coinbase transaction
+from block 961640 to 975264 (3,278,236), on top of Plumb's defaults:
+
+| Setting | Also refuses | Data in them | With a swap or bridge memo |
+|---------|-------------:|-------------:|---------------------------:|
+| `-datacarriersize=42` | 73,585 | 4.89 MB | 68,339 |
+| `-datacarriersize=8` | 92,436 | 5.21 MB | 76,840 |
+| `-datacarrier=0` | 92,913 | 5.21 MB | 76,844 |
+
+The others at 42 include Stacks block commits and Babylon staking. Going from
+42 to 0 refuses 19,328 more transactions that hold 0.32 MB more data. A 42-byte
+limit lets most token mints on this chain through: 809 of the 860 JSON mints
+are 41 or 42 bytes. `-rejecttokenmessages` refuses them at any size.
