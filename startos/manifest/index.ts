@@ -16,12 +16,12 @@ export const manifest = setupManifest({
       source: {
         dockerBuild: {
           buildArgs: {
-            VERSION: '29.4.2.knots20260508',
-            PATH_VERSION: '29.x',
+            PLUMB_TAG: 'v29.4.2.knots20260508.plumb3',
+            PLUMB_COMMIT: '2dd1d817023e80d1e21f3e1dd64b0c503f56f1ec',
           },
         },
       },
-      arch: ['x86_64', 'aarch64', 'riscv64'],
+      arch: ['x86_64'],
     },
     proxy: {
       source: {

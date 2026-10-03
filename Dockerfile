@@ -1,101 +1,73 @@
-# Build stage
+# Plumb is Bitcoin Knots with extra spam filters in its relay policy:
+# https://github.com/plumb-node/plumb. Plumb publishes signed source tags and
+# no binaries, so this stage builds bitcoind and bitcoin-cli from the tag.
+#
+# Trust: the tag must point at PLUMB_COMMIT, pinned in the manifest, and carry
+# a good signature from the one pinned Plumb release key. The keyring holds
+# that key and nothing else, so no other key can satisfy the check.
 FROM debian:stable-slim AS builder
 
-ARG VERSION
-ARG PATH_VERSION
+ARG PLUMB_REPO=https://github.com/plumb-node/plumb.git
+ARG PLUMB_TAG
+ARG PLUMB_COMMIT
+# Parallel compile jobs. Kept low by default: the build machine may be running
+# a node of its own.
+ARG JOBS=4
 ARG TARGETPLATFORM
 
-WORKDIR /build
+ENV PLUMB_SIGNER=89F0E41D72CE523F4AA1CDB692CDFFB7C40CD1BA
 
-RUN apt-get update && apt-get install -y wget pgp ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake pkgconf python3 git ca-certificates gnupg \
+        libevent-dev libsqlite3-dev libboost-dev libzmq3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Pinned Bitcoin Knots release signers. Build requires REQUIRED_QUORUM
-# DISTINCT signers from this set; not every signer signs every release,
-# which is why the gate is a quorum rather than all of them. Adding a
-# signer here is an explicit trust decision — do not delegate to
-# upstream key directories or keyservers.
-#
-# This list must stay in lockstep with assets/release-keys/: the build
-# asserts the imported keyring is exactly this set, so a key file with no
-# fingerprint here — or a fingerprint here with no key file — fails the
-# build rather than silently widening or narrowing who can sign.
-ENV PINNED_FINGERPRINTS="\
-1A3E761F19D2CC7785C5502EA291A2C45D0C504A \
-1D5889CB9E0564C154E18BB512EC9519DB43CC27 \
-658E64021E5793C6C4E15E45C2E581F5B998F30E \
-83BB550EBD429F9D5133F910D4D746D66204CA41 \
-95636F3538D9262765AB29BEE952E584CA8C0F45 \
-A47D99B6DB0D715D40C59A2023AE8A8EA7E24E38 \
-DAED928C727D3E613EC46635F5073C4F4882FFFC"
-ENV REQUIRED_QUORUM=1
+COPY assets/plumb-keys/ /tmp/plumb-keys/
 
-RUN case "${TARGETPLATFORM}" in \
-      "linux/amd64")   echo "bitcoin-${VERSION}-x86_64-linux-gnu.tar.gz"    > /tarball-name ;; \
-      "linux/arm64")   echo "bitcoin-${VERSION}-aarch64-linux-gnu.tar.gz"   > /tarball-name ;; \
-      "linux/riscv64") echo "bitcoin-${VERSION}-riscv64-linux-gnu.tar.gz"   > /tarball-name ;; \
-      *) echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1 ;; \
-    esac
-
-RUN wget https://test.bitcoinknots.org/~luke-jr/programs/bitcoin/files/bitcoin-knots/${PATH_VERSION}/${VERSION}/$(cat /tarball-name) \
-         https://test.bitcoinknots.org/~luke-jr/programs/bitcoin/files/bitcoin-knots/${PATH_VERSION}/${VERSION}/SHA256SUMS.asc \
-         https://test.bitcoinknots.org/~luke-jr/programs/bitcoin/files/bitcoin-knots/${PATH_VERSION}/${VERSION}/SHA256SUMS
-
-COPY assets/release-keys/ /tmp/release-keys/
-
-# Verify SHA256SUMS.asc against the pinned signer set.
-#
-# The quorum counts DISTINCT signers, identified by primary fingerprint. GnuPG
-# emits one status line per signature PACKET, so counting packets would let a
-# single compromised key satisfy the quorum by signing REQUIRED_QUORUM times,
-# leaving no tolerance at all for a compromised signer. VALIDSIG's last field is
-# the signing key's primary fingerprint, so a signature made by a subkey rolls
-# up to the signer that owns it.
-#
-# A VALIDSIG alone is not enough to count: GnuPG also emits one for a signature
-# by an expired or revoked key, pairing it with EXPKEYSIG/REVKEYSIG instead of
-# GOODSIG. Knots releases carry such a signature today, and counting it would be
-# laxer than what this replaced, so the walk below only counts a VALIDSIG whose
-# signature reported GOODSIG.
-#
-# The keyring is asserted equal to the pinned primaries first, so the count can
-# be taken over the keyring as a whole: a stray key dropped into
-# assets/release-keys/ fails the build rather than voting in the quorum.
-#
-# gpg's exit code is unusable here: GnuPG 2.4+ returns non-zero for ERRSIG
-# (signatures by signers outside the keyring) even when the pinned-key
-# signatures verified fine.
+WORKDIR /src
 RUN set -e; \
     export LC_ALL=C; \
-    gpg --import /tmp/release-keys/*.asc; \
-    rm -rf /tmp/release-keys; \
-    : > /tmp/pinned-primaries.raw; \
-    for fp in ${PINNED_FINGERPRINTS}; do \
-        gpg --with-colons --list-keys "$fp" 2>/dev/null \
-          | awk -F: '/^fpr:/{print $10; exit}' >> /tmp/pinned-primaries.raw; \
-    done; \
-    sort -u /tmp/pinned-primaries.raw > /tmp/pinned-primaries; \
-    expected=$(echo ${PINNED_FINGERPRINTS} | wc -w); \
-    if [ "$(wc -l < /tmp/pinned-primaries)" -ne "${expected}" ]; then \
-        echo "PINNED KEY MISSING OR DUPLICATED (expected ${expected} distinct primaries)"; exit 1; \
+    case "${TARGETPLATFORM}" in linux/amd64) ;; *) echo "Unsupported platform: ${TARGETPLATFORM}"; exit 1 ;; esac; \
+    gpg --quiet --import /tmp/plumb-keys/*.asc; \
+    rm -rf /tmp/plumb-keys; \
+    if [ "$(gpg --with-colons --list-keys | grep -c '^pub:')" != 1 ] || \
+       [ "$(gpg --with-colons --list-keys | awk -F: '/^fpr:/{print $10; exit}')" != "${PLUMB_SIGNER}" ]; then \
+        echo "KEYRING IS NOT EXACTLY THE PINNED PLUMB KEY"; exit 1; \
     fi; \
-    gpg --with-colons --list-keys \
-      | awk -F: '/^pub:/{p=1} p && /^fpr:/{print $10; p=0}' | sort -u > /tmp/keyring-primaries; \
-    if ! diff -q /tmp/pinned-primaries /tmp/keyring-primaries >/dev/null; then \
-        echo "KEYRING CONTAINS KEYS OUTSIDE THE PINNED SET"; exit 1; \
+    git init -q; \
+    git remote add origin "${PLUMB_REPO}"; \
+    git fetch -q --depth 1 origin "refs/tags/${PLUMB_TAG}:refs/tags/${PLUMB_TAG}"; \
+    if [ "$(git rev-parse "${PLUMB_TAG}^{commit}")" != "${PLUMB_COMMIT}" ]; then \
+        echo "TAG ${PLUMB_TAG} DOES NOT POINT AT ${PLUMB_COMMIT}"; exit 1; \
     fi; \
-    gpg --verify --status-fd 1 SHA256SUMS.asc SHA256SUMS 2>/dev/null > /tmp/gpg-status || true; \
-    bad=$(grep -c '^\[GNUPG:\] BADSIG' /tmp/gpg-status || true); \
-    signers=$(awk '/^\[GNUPG:\] NEWSIG/{g=0} /^\[GNUPG:\] GOODSIG/{g=1} /^\[GNUPG:\] VALIDSIG/{if(g)print $NF; g=0}' /tmp/gpg-status \
-      | grep -Ex '[0-9A-F]{40}' | sort -u | comm -12 - /tmp/pinned-primaries | wc -l); \
-    skipped=$(grep -cE '^\[GNUPG:\] (EXPKEYSIG|REVKEYSIG)' /tmp/gpg-status || true); \
-    echo "Distinct pinned signers: ${signers}, bad: ${bad}, uncounted (expired/revoked key): ${skipped} (need ${REQUIRED_QUORUM}, 0)"; \
-    if [ "${bad}" -ne 0 ]; then echo "BAD SIGNATURE FROM PINNED KEY"; exit 1; fi; \
-    if [ "${signers}" -lt "${REQUIRED_QUORUM}" ]; then echo "INSUFFICIENT QUORUM"; exit 1; fi
+    git verify-tag --raw "${PLUMB_TAG}" 2> /tmp/verify-tag || true; \
+    if ! grep -q '^\[GNUPG:\] GOODSIG ' /tmp/verify-tag || \
+       ! grep -q "^\[GNUPG:\] VALIDSIG .* ${PLUMB_SIGNER}\$" /tmp/verify-tag; then \
+        cat /tmp/verify-tag; echo "TAG SIGNATURE DOES NOT VERIFY AGAINST THE PINNED KEY"; exit 1; \
+    fi; \
+    git checkout -q "${PLUMB_COMMIT}"; \
+    echo "Building ${PLUMB_TAG} at ${PLUMB_COMMIT}, tag signed by ${PLUMB_SIGNER}"
 
-RUN cp SHA256SUMS /sha256sums
-RUN grep $(cat /tarball-name) /sha256sums | sha256sum -c
+RUN cmake -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_GUI=OFF \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_BENCH=OFF \
+        -DBUILD_FUZZ_BINARY=OFF \
+        -DENABLE_WALLET=ON \
+        -DWITH_ZMQ=ON \
+ && cmake --build build -j"${JOBS}" --target bitcoind bitcoin-cli \
+ && mkdir -p /build/bin \
+ && cp build/bin/bitcoind build/bin/bitcoin-cli /build/bin/ \
+ && strip /build/bin/bitcoind /build/bin/bitcoin-cli \
+ && /build/bin/bitcoind -version | head -1
 
-RUN tar -zxvf $(cat /tarball-name) --strip-components=1
+# The Debian packages that own the shared libraries the binaries load, for the
+# runtime image below. dpkg knows some of them under /usr only.
+RUN for lib in $(ldd /build/bin/bitcoind /build/bin/bitcoin-cli | awk '/=> \//{print $3}' | sort -u); do \
+        dpkg -S "$lib" 2>/dev/null || dpkg -S "/usr$lib"; \
+    done | cut -d: -f1 | sort -u | grep -vx 'libc6\|libgcc-s1\|libstdc++6' > /runtime-packages; \
+    cat /runtime-packages
 
 # Final image
 FROM debian:stable-slim
@@ -105,11 +77,17 @@ ENV BITCOIN_PREFIX=/opt/bitcoin
 ENV PATH=${BITCOIN_PREFIX}/bin:$PATH
 
 # curl is load-bearing: the assumeutxo action shells out to it in this image
-# to download the UTXO snapshot.
-RUN apt-get update && apt-get install -y curl e2fsprogs jq yq
+# to download the UTXO snapshot. The rest are the libraries the Plumb binaries
+# load, listed by the build stage.
+COPY --from=builder /runtime-packages /tmp/runtime-packages
+RUN apt-get update && apt-get install -y curl e2fsprogs jq yq $(cat /tmp/runtime-packages) \
+    && rm -rf /var/lib/apt/lists/* /tmp/runtime-packages
 
 COPY --from=builder /build/bin/bitcoind ${BITCOIN_PREFIX}/bin/
 COPY --from=builder /build/bin/bitcoin-cli ${BITCOIN_PREFIX}/bin/
+RUN if ldd ${BITCOIN_PREFIX}/bin/bitcoind ${BITCOIN_PREFIX}/bin/bitcoin-cli | grep "not found"; then \
+        echo "A SHARED LIBRARY IS MISSING FROM THE RUNTIME IMAGE"; exit 1; \
+    fi
 
 ARG ARCH
 
