@@ -777,6 +777,10 @@ void SetupServerArgs(ArgsManager& argsman, bool can_listen_ipc)
                    strprintf("Refuse to relay or mine transactions involving non-bitcoin tokens (default: %u)",
                              DEFAULT_REJECT_TOKENS),
                    ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
+    argsman.AddArg("-rejecttokenmessages",
+                   strprintf("Refuse to relay or mine transactions whose OP_RETURN output holds a token message that -rejecttokens does not match: a JSON object whose \"p\" member names the protocol (the BRC-20 format), or an Omni Layer message (default: %u)",
+                             DEFAULT_REJECT_TOKEN_MESSAGES),
+                   ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-subdustfeepenalty",
                    strprintf("Reduce effective fee by the dust threshold for each sub-dust output, making dust-creating transactions require higher fees (default: %u)",
                              DEFAULT_SUBDUSTFEEPENALTY),
@@ -884,6 +888,7 @@ void InitParameterInteraction(ArgsManager& args)
         args.SoftSetArg("-rejectfakemultisig", "0");
         args.SoftSetArg("-rejecttokens", "0");
         args.SoftSetArg("-rejectfakeoutputs", "0");
+        args.SoftSetArg("-rejecttokenmessages", "0");
         args.SoftSetArg("-subdustfeepenalty", "0");
         args.SoftSetArg("-datacarriercost", "0.25");
         args.SoftSetArg("-datacarrierfullcount", "0");
