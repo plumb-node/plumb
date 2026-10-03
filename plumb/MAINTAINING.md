@@ -21,7 +21,11 @@ Adding a filter
 ---------------
 
 The bar is in the README. A filter comes in as a pull request here, as a
-Knots pull request, or both.
+Knots pull request, or both. A filter from our own research is opened as a
+pull request here like any other and gets the same review and ACK before it
+merges. Its `source` in `plumb/filters.json` is `plumb#N`, its `url` is that
+pull request, and `related` can say which Knots issue or pull request asked
+for it.
 
 1. Review it: read the code, run the suites, measure it against the chain
    since the fork, and run it on a mainnet node. Post the ACK on the pull
