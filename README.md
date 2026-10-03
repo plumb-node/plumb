@@ -76,6 +76,10 @@ you have one open against Knots, open it here too and link the two; we
 review it on its own merits and keep shipping it whatever happens upstream.
 A filter that Knots closes stays in Plumb.
 
+Plumb also writes filters of its own, for shapes no Knots pull request
+covers. They go through a pull request here and the same bar as any other,
+and the filter list marks them as Plumb's own.
+
 What a filter needs:
 
 1. Its own option, default on, turned off by `-corepolicy`, the same shape
