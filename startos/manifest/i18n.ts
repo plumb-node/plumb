@@ -1,14 +1,14 @@
 export const short = {
-  en_US: 'A Bitcoin Full Node by Bitcoin Knots',
-  es_ES: 'Un nodo completo de Bitcoin por Bitcoin Knots',
-  de_DE: 'Ein Bitcoin Full Node von Bitcoin Knots',
-  pl_PL: 'Pełny węzeł Bitcoina od Bitcoin Knots',
-  fr_FR: 'Un nœud complet de Bitcoin par Bitcoin Knots',
+  en_US: 'Bitcoin Knots with every reviewed spam filter on by default',
+  es_ES: 'Bitcoin Knots con todos los filtros antispam revisados activados',
+  de_DE: 'Bitcoin Knots mit allen geprüften Spamfiltern aktiviert',
+  pl_PL: 'Bitcoin Knots z włączonymi wszystkimi sprawdzonymi filtrami spamu',
+  fr_FR: 'Bitcoin Knots avec tous les filtres anti-spam vérifiés activés',
 }
 
 export const long = {
   en_US:
-    'Bitcoin is an innovative payment network and a new kind of money. Bitcoin uses peer-to-peer technology to operate with no central authority or banks; managing transactions and the issuing of bitcoins is carried out collectively by the network. Bitcoin is open-source; its design is public, nobody owns or controls Bitcoin and everyone can take part. Through many of its unique properties, Bitcoin allows exciting uses that could not be covered by any previous payment system.',
+    'Plumb is Bitcoin Knots plus the spam-policy filters the Plumb maintainers have reviewed, each on by default and each its own option. It changes what your node relays and mines, not which blocks are valid, and it follows the same chain as the Bitcoin Knots release it is built on. It uses the same settings and data directory as the Bitcoin Knots package, so you can switch between the two. Bitcoin is an innovative payment network and a new kind of money. Bitcoin uses peer-to-peer technology to operate with no central authority or banks; managing transactions and the issuing of bitcoins is carried out collectively by the network. Bitcoin is open-source; its design is public, nobody owns or controls Bitcoin and everyone can take part. Through many of its unique properties, Bitcoin allows exciting uses that could not be covered by any previous payment system.',
   es_ES:
     'Bitcoin es una red de pagos innovadora y un nuevo tipo de dinero. Bitcoin utiliza tecnología peer-to-peer para operar sin autoridad central ni bancos; la gestión de transacciones y la emisión de bitcoins se lleva a cabo colectivamente por la red. Bitcoin es de código abierto; su diseño es público, nadie posee ni controla Bitcoin y todos pueden participar. A través de sus muchas propiedades únicas, Bitcoin permite usos emocionantes que no podrían ser cubiertos por ningún sistema de pago anterior.',
   de_DE:

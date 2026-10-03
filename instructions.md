@@ -1,22 +1,23 @@
-# Bitcoin Knots
+# Plumb
 
 ## Documentation
 
 - [Start9 Bitcoin guides](https://docs.start9.com/bitcoin-guides/) — operating-a-Bitcoin-node guides curated for StartOS users (connecting wallets, dependent services, common workflows).
+- [Plumb](https://github.com/plumb-node/plumb): what Plumb adds to Bitcoin Knots, and [what each filter rejects](https://github.com/plumb-node/plumb/blob/29.x-plumb/plumb/FILTERS.md) and how to turn it off.
 - [About Bitcoin Knots](https://bitcoinknots.org/#about) — upstream project's description of how Knots differs from Bitcoin Core.
-- [About BIP-110 / RDTS](https://bip110.org) — background on the Reduced Data Temporary Softfork network upgrade this version will eventually enforce.
+- [About BIP-110 / RDTS](https://bip110.org) — background on the Reduced Data Temporary Softfork, which this version enforces.
 
 ## What you get on StartOS
 
-- A full Bitcoin Knots node with three interfaces: **RPC Interface** (JSON-RPC for wallets and dependent services), **Peer Interface** (the network port other nodes connect to), and **ZeroMQ Interface** (block/transaction notifications, when ZMQ is enabled).
+- A full Bitcoin Knots node with Plumb's spam filters, each on by default, and three interfaces: **RPC Interface** (JSON-RPC for wallets and dependent services), **Peer Interface** (the network port other nodes connect to), and **ZeroMQ Interface** (block/transaction notifications, when ZMQ is enabled).
 - An embedded **i2pd** sidecar that brings up I2P transport automatically — your node accepts inbound peers over I2P out of the box, with a separate **I2P Daemon Console** interface available when you turn the i2pd web console on.
 - An automatic Tor outbound proxy (your node reaches `.onion` peers without configuration); add a `.onion` to the Peer Interface to advertise yourself and accept inbound Tor connections too.
 - Disk-aware defaults: on disks smaller than 900 GB the package enables pruning and disables `txindex`; on larger disks you get a full archival node. The transition is transparent — pruned nodes route RPC through a small `btc-rpc-proxy` sidecar so port 8332 always serves RPC the same way.
-- Shared `bitcoind` package id with Bitcoin Core — you can switch flavors without re-syncing the chain.
+- Shared `bitcoind` package id with Bitcoin Knots on the BLAKE2b chain, so you can switch between the two without re-syncing. Switching from Bitcoin Core or a pre-fork Knots is blocked: those follow a different chain.
 
 ## Getting set up
 
-Bitcoin Knots starts and begins Initial Block Download (IBD) immediately on install.
+Plumb starts and begins Initial Block Download (IBD) immediately on install.
 
 1. Start the service. Open the Dashboard and watch the sync progress.
 2. If you want inbound clearnet peers, add a public IP or hostname on the **Peer Interface**. If you want inbound Tor peers, add a `.onion` there.
@@ -24,7 +25,7 @@ Bitcoin Knots starts and begins Initial Block Download (IBD) immediately on inst
 
 > Initial Block Download takes hours to days depending on hardware and network. The node is functional immediately but RPC calls that depend on chain state will return partial results until sync completes.
 
-## Using Bitcoin Knots
+## Using Plumb
 
 ### RPC
 
@@ -35,6 +36,7 @@ The **RPC Interface** is where wallets, indexers, Lightning nodes, and other dep
 Four configuration actions cover the full set of editable `bitcoin.conf` values, grouped to be navigable:
 
 - **Mempool Settings** — Knots' policy controls (OP_RETURN limits, parasite/token filters, replacement rules, ancestor/descendant limits, dust relay fee, etc.) plus standard mempool sizing.
+- Plumb's own filters are not on these settings screens. They are on by default, and the node lists them at startup in its log (`Plumb filter ...` lines).
 - **Peer Settings** — `onlynet`, BIP324 v2 transport, I2P SAM proxy on/off, manual peers, max connections.
 - **RPC Settings** — RPC threads, work queue, server timeout.
 - **Other Settings** — ZMQ, txindex, block templates, coinstats index, block filters (BIP158/157), pruning, dbcache, wallet master switches, NAT-PMP, max upload target, and more.

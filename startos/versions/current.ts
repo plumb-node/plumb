@@ -3,13 +3,13 @@ import { rm } from 'fs/promises'
 import { bitcoinConfFile } from '../fileModels/bitcoin.conf'
 
 export const current = VersionInfo.of({
-  version: '#knots:29.4.2:3',
+  version: '#plumb:29.4.2.3:0',
   releaseNotes: {
-    en_US: `Update to Bitcoin Knots v29.4.2.knots20260508`,
-    es_ES: `Actualización a Bitcoin Knots v29.4.2.knots20260508`,
-    de_DE: `Aktualisierung auf Bitcoin Knots v29.4.2.knots20260508`,
-    pl_PL: `Aktualizacja do Bitcoin Knots v29.4.2.knots20260508`,
-    fr_FR: `Mise à jour vers Bitcoin Knots v29.4.2.knots20260508`,
+    en_US: `Plumb v29.4.2.knots20260508.plumb3, built from the signed source tag`,
+    es_ES: `Plumb v29.4.2.knots20260508.plumb3, compilado desde la etiqueta de código firmada`,
+    de_DE: `Plumb v29.4.2.knots20260508.plumb3, aus dem signierten Quell-Tag gebaut`,
+    pl_PL: `Plumb v29.4.2.knots20260508.plumb3, zbudowany z podpisanego tagu źródłowego`,
+    fr_FR: `Plumb v29.4.2.knots20260508.plumb3, compilé à partir du tag source signé`,
   },
   migrations: {
     up: async ({ effects }) => {},
@@ -23,7 +23,14 @@ export const current = VersionInfo.of({
       ['^#knotsrdts:29.3']: {
         up: async ({ effects }) => {},
       },
+      // Bitcoin Knots on the BLAKE2b chain (Retropex's #knots flavor). Same
+      // chain, same data directory and bitcoin.conf, so nothing to migrate.
+      ['^#knots:29.4']: {
+        up: async ({ effects }) => {},
+      },
     },
   },
 })
-
+  // Dependents written for the #knots flavor (BLAKE2b Fulcrum, Datum) accept
+  // this release as the Knots it is built on.
+  .satisfies('#knots:29.4.2:3')

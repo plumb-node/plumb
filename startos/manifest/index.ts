@@ -3,12 +3,12 @@ import { long, short, torDescription } from './i18n'
 
 export const manifest = setupManifest({
   id: 'bitcoind',
-  title: 'Bitcoin Knots',
+  title: 'Plumb',
   license: 'MIT',
   donationUrl: null,
-  packageRepo: 'https://github.com/bitcoinknots/bitcoin-knots-startos',
-  upstreamRepo: 'https://github.com/bitcoinknots/bitcoin',
-  marketingUrl: 'https://bitcoinknots.org/',
+  packageRepo: 'https://github.com/plumb-node/plumb-startos',
+  upstreamRepo: 'https://github.com/plumb-node/plumb',
+  marketingUrl: 'https://github.com/plumb-node/plumb',
   description: { short, long },
   volumes: ['main', 'i2pd'],
   images: {
