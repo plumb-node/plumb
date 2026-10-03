@@ -71,9 +71,7 @@ std::string FormatSubVersion(const std::string& name, int nClientVersion, const 
     if (!base_name_only) {
         static const auto ua_knots = []() -> std::string {
             const auto pos{CLIENT_BUILD.find(".knots")};
-            const auto pos_plumb{CLIENT_BUILD.find(".plumb", pos)};
-            if (pos_plumb == std::string::npos) return "Knots:" + CLIENT_BUILD.substr(pos + 6) + "/";
-            return "Knots:" + CLIENT_BUILD.substr(pos + 6, pos_plumb - pos - 6) + "/Plumb:" + CLIENT_BUILD.substr(pos_plumb + 6) + "/";
+            return "Knots:" + CLIENT_BUILD.substr(pos + 6) + "/";
         }();
         ua += ua_knots;
     }
