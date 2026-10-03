@@ -986,6 +986,14 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CheckIsStandard(t);
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << "6f6d6e69000000"_hex;
     CheckIsStandard(t);
+    // A second OP_RETURN output is refused before either one is read, so a peer can make the
+    // filter read one OP_RETURN script per transaction
+    t.vout[0].scriptPubKey = CScript() << OP_RETURN << json_mint;
+    const CTxOut second_op_return{t.vout[0]};
+    t.vout.insert(t.vout.begin(), second_op_return);
+    CheckIsNotStandard(t, "multi-op-return");
+    t.vout.erase(t.vout.begin());
+    CheckIsNotStandard(t, "tokens-json");
 
     // Test rejecttokens applying to OLGA
     const auto olga_header = CScript() << OP_0 << "003e7374616d703a000000000000000000000000000000000000000000000000"_hex;
