@@ -128,6 +128,11 @@ FILTERS_INTRO = """Plumb filters
 Generated from `plumb/filters.json` by `plumb/tools/gen-assets.py`; edit
 those, not this file.
 
+Each filter names where it came from. Most are Knots pull requests, merged
+here at the commit we reviewed. A filter marked Plumb's own came from our own
+research and has no Knots pull request; it is reviewed and ACKed on its pull
+request here like any other.
+
 Each filter counts bytes it recognizes as data. Knots then applies its data
 carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
 any data outside an `OP_RETURN` output means the node does not relay or mine
