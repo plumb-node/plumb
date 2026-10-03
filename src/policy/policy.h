@@ -66,6 +66,8 @@ static constexpr unsigned int DEFAULT_BYTES_PER_SIGOP_STRICT{20};
 static constexpr unsigned int DEFAULT_WEIGHT_PER_DATA_BYTE{4};
 /** Default for -rejecttokens */
 static constexpr bool DEFAULT_REJECT_TOKENS{true};
+/** Default for -rejecttokenmessages */
+static constexpr bool DEFAULT_REJECT_TOKEN_MESSAGES{true};
 /** Default for -subdustfeepenalty */
 static constexpr bool DEFAULT_SUBDUSTFEEPENALTY{true};
 
