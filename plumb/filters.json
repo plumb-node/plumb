@@ -71,5 +71,25 @@
       "height": 974241,
       "note": "a file in 475 inputs at 546 sat each, 474 of them a 1-of-15 multisig whose 14 unused keys are file chunks"
     }
+  },
+  {
+    "option": "-rejecttokenmessages",
+    "name": "Token messages",
+    "source": "plumb#2",
+    "url": "https://github.com/plumb-node/plumb/pull/2",
+    "upstream": "none, Plumb's own",
+    "related": "knots#64",
+    "related_url": "https://github.com/bitcoinknots/bitcoin/issues/64",
+    "branch": "filter/rejecttokenmessages",
+    "commit": "a064d137d62fdc0afb1e8b07b34ebcd84458bdc6",
+    "summary": "Refuses an OP_RETURN that holds a JSON token message or an Omni Layer message",
+    "since": "v29.4.2.knots20260508.plumb4",
+    "catches": "Token operations written into an `OP_RETURN` that `-rejecttokens` does not match. A JSON object whose `\"p\"` field names the protocol is the BRC-20 format, which ico-20, crc-20 and others copy: `{\"p\":\"ico-20\",\"op\":\"mint\",\"tick\":\"LEAF\"}`. Omni Layer messages begin with `omni`. Most JSON mints on this chain are 41 or 42 bytes, under even a 42-byte `-datacarriersize`.",
+    "passes": "Every other `OP_RETURN`: swap and bridge memos, Stacks block commits, Babylon staking, and random data that happens to start with `{`. The payload has to start as a JSON object with a top-level `\"p\"` member whose value is a string.",
+    "example": {
+      "txid": "715863e04b618a6818eaec826b8ea900a75a43a5c22859c6b408c68246c4ebcb",
+      "height": 971661,
+      "note": "the first ico-20 mint since the fork, `{\"p\":\"ico-20\",\"op\":\"mint\",\"tick\":\"LEAF\"}` in a 42-byte `OP_RETURN`"
+    }
   }
 ]

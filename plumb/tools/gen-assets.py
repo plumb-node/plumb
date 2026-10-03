@@ -116,7 +116,7 @@ def check_init(filters):
     block = re.search(r"PLUMB_FILTERS\{\{(.*?)\}\};", init, re.DOTALL)
     if not block:
         sys.exit("PLUMB_FILTERS not found in src/init.cpp")
-    in_init = re.findall(r'\{"(-\w+)", \w+, "(knots#\d+)"\}', block.group(1))
+    in_init = re.findall(r'\{"(-\w+)", \w+, "((?:knots|plumb)#\d+)"\}', block.group(1))
     in_json = [(f["option"], f["source"]) for f in filters]
     if in_init != in_json:
         sys.exit(f"src/init.cpp PLUMB_FILTERS {in_init} does not match plumb/filters.json {in_json}")
@@ -133,12 +133,14 @@ here at the commit we reviewed. A filter marked Plumb's own came from our own
 research and has no Knots pull request; it is reviewed and ACKed on its pull
 request here like any other.
 
-Each filter counts bytes it recognizes as data. Knots then applies its data
+Most filters count bytes they recognize as data. Knots then applies its data
 carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
 any data outside an `OP_RETURN` output means the node does not relay or mine
 the transaction, and `-datacarriersize` (83 bytes by default) caps the total.
-The filters never touch block validity. A block that contains one of these
-transactions is still valid and your node still accepts it.
+`-rejecttokenmessages` instead refuses a token message it recognizes, the way
+Knots' `-rejecttokens` refuses Runes and Counterparty. The filters never touch
+block validity. A block that contains one of these transactions is still
+valid and your node still accepts it.
 
 Every filter is on by default. To turn one off, add its line with `=0` to
 `bitcoin.conf` (or pass it on the command line) and restart the node.
@@ -158,10 +160,14 @@ def anchor(name):
 def filters_md(filters):
     out = [FILTERS_INTRO]
     for f in filters:
-        num = f["source"].split("#")[1]
         out.append(f"\n{f['name']}\n{'-' * len(f['name'])}\n")
-        out.append(f"Option `{f['option']}`, default on, from [{f['source']}]({f['url']}) "
-                   f"(upstream: {f['upstream']}), in Plumb since `{f['since']}`.\n")
+        if f["source"].startswith("plumb#"):
+            related = f" [{f['related']}]({f['related_url']}) asked for filters like it." if f.get("related") else ""
+            out.append(f"Option `{f['option']}`, default on, Plumb's own filter from [{f['source']}]({f['url']}); "
+                       f"there is no Knots pull request.{related} In Plumb since `{f['since']}`.\n")
+        else:
+            out.append(f"Option `{f['option']}`, default on, from [{f['source']}]({f['url']}) "
+                       f"(upstream: {f['upstream']}), in Plumb since `{f['since']}`.\n")
         out.append(f"**What it rejects.** {f['catches']}\n")
         out.append(f"**What it leaves alone.** {f['passes']}\n")
         if f.get("cost"):
@@ -172,15 +178,23 @@ def filters_md(filters):
         out.append(f"**Turn it off.** In `bitcoin.conf`:\n\n```\n{f['option'][1:]}=0\n```\n\n"
                    f"or `{f['option']}=0` on the command line. The code is on the "
                    f"[`{f['branch']}`](https://github.com/plumb-node/plumb/tree/{f['branch']}) branch "
-                   f"and in [knots#{num}]({f['url']}).\n")
+                   f"and in [{f['source']}]({f['url']}).\n")
     return "\n".join(out)
+
+
+def own(f):
+    return "Plumb's own " if f["source"].startswith("plumb#") else ""
+
+
+def no_pr(f):
+    return ", no Knots pull request" if f["source"].startswith("plumb#") else ""
 
 
 def readme_list(filters):
     lines = []
     for f in filters:
         lines.append(f"- **[{f['name']}](plumb/FILTERS.md#{anchor(f['name'])})**, `{f['option']}`, "
-                     f"from [{f['source']}]({f['url']}): {f['summary'][0].lower()}{f['summary'][1:]}.")
+                     f"{own(f)}from [{f['source']}]({f['url']}){no_pr(f)}: {f['summary'][0].lower()}{f['summary'][1:]}.")
     lines.append("\nEvery filter is on by default and is its own option. [plumb/FILTERS.md](plumb/FILTERS.md)\n"
                  "says what each one rejects and leaves alone, with an example transaction and\n"
                  "the line that turns it off. `-corepolicy` turns all of them off along with the\n"
