@@ -3,13 +3,13 @@ import { rm } from 'fs/promises'
 import { bitcoinConfFile } from '../fileModels/bitcoin.conf'
 
 export const current = VersionInfo.of({
-  version: '#plumb:29.4.2.3:0',
+  version: '#plumb:29.4.2.4:0',
   releaseNotes: {
-    en_US: `Plumb v29.4.2.knots20260508.plumb3, built from the signed source tag`,
-    es_ES: `Plumb v29.4.2.knots20260508.plumb3, compilado desde la etiqueta de código firmada`,
-    de_DE: `Plumb v29.4.2.knots20260508.plumb3, aus dem signierten Quell-Tag gebaut`,
-    pl_PL: `Plumb v29.4.2.knots20260508.plumb3, zbudowany z podpisanego tagu źródłowego`,
-    fr_FR: `Plumb v29.4.2.knots20260508.plumb3, compilé à partir du tag source signé`,
+    en_US: `Plumb v29.4.2.knots20260508.plumb4, built from the signed source tag`,
+    es_ES: `Plumb v29.4.2.knots20260508.plumb4, compilado desde la etiqueta de código firmada`,
+    de_DE: `Plumb v29.4.2.knots20260508.plumb4, aus dem signierten Quell-Tag gebaut`,
+    pl_PL: `Plumb v29.4.2.knots20260508.plumb4, zbudowany z podpisanego tagu źródłowego`,
+    fr_FR: `Plumb v29.4.2.knots20260508.plumb4, compilé à partir du tag source signé`,
   },
   migrations: {
     up: async ({ effects }) => {},
