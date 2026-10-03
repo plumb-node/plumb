@@ -9,12 +9,14 @@ here at the commit we reviewed. A filter marked Plumb's own came from our own
 research and has no Knots pull request; it is reviewed and ACKed on its pull
 request here like any other.
 
-Each filter counts bytes it recognizes as data. Knots then applies its data
+Most filters count bytes they recognize as data. Knots then applies its data
 carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
 any data outside an `OP_RETURN` output means the node does not relay or mine
 the transaction, and `-datacarriersize` (83 bytes by default) caps the total.
-The filters never touch block validity. A block that contains one of these
-transactions is still valid and your node still accepts it.
+`-rejecttokenmessages` instead refuses a token message it recognizes, the way
+Knots' `-rejecttokens` refuses Runes and Counterparty. The filters never touch
+block validity. A block that contains one of these transactions is still
+valid and your node still accepts it.
 
 Every filter is on by default. To turn one off, add its line with `=0` to
 `bitcoin.conf` (or pass it on the command line) and restart the node.
@@ -106,3 +108,23 @@ rejectfakemultisig=0
 ```
 
 or `-rejectfakemultisig=0` on the command line. The code is on the [`filter/rejectfakemultisig`](https://github.com/plumb-node/plumb/tree/filter/rejectfakemultisig) branch and in [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422).
+
+
+Token messages
+--------------
+
+Option `-rejecttokenmessages`, default on, Plumb's own filter from [plumb#2](https://github.com/plumb-node/plumb/pull/2); there is no Knots pull request. [knots#64](https://github.com/bitcoinknots/bitcoin/issues/64) asked for filters like it. In Plumb since `v29.4.2.knots20260508.plumb4`.
+
+**What it rejects.** Token operations written into an `OP_RETURN` that `-rejecttokens` does not match. A JSON object whose `"p"` field names the protocol is the BRC-20 format, which ico-20, crc-20 and others copy: `{"p":"ico-20","op":"mint","tick":"LEAF"}`. Omni Layer messages begin with `omni`. Most JSON mints on this chain are 41 or 42 bytes, under even a 42-byte `-datacarriersize`.
+
+**What it leaves alone.** Every other `OP_RETURN`: swap and bridge memos, Stacks block commits, Babylon staking, and random data that happens to start with `{`. The payload has to start as a JSON object with a top-level `"p"` member whose value is a string.
+
+**Example.** `715863e04b618a6818eaec826b8ea900a75a43a5c22859c6b408c68246c4ebcb` at block 971661: the first ico-20 mint since the fork, `{"p":"ico-20","op":"mint","tick":"LEAF"}` in a 42-byte `OP_RETURN`.
+
+**Turn it off.** In `bitcoin.conf`:
+
+```
+rejecttokenmessages=0
+```
+
+or `-rejecttokenmessages=0` on the command line. The code is on the [`filter/rejecttokenmessages`](https://github.com/plumb-node/plumb/tree/filter/rejecttokenmessages) branch and in [plumb#2](https://github.com/plumb-node/plumb/pull/2).
