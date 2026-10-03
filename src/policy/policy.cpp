@@ -374,6 +374,7 @@ bool IsStandardTx(const CTransaction& tx, const kernel::MemPoolOptions& opts, st
     unsigned int n_monetary{0};
     TxoutType whichType;
     std::optional<std::array<unsigned char, CNTRPRTY.size()>> cntrprty_keystream;
+    std::vector<size_t> null_data_outs;
     for (size_t i{tx.vout.size()}; i; ) {
         const CTxOut& txout = tx.vout[--i];
 
@@ -417,16 +418,7 @@ bool IsStandardTx(const CTransaction& tx, const kernel::MemPoolOptions& opts, st
                     }
                 }
             }
-            if (opts.reject_token_messages) {
-                if (const auto pushes{GetNullDataPushes(txout.scriptPubKey)}) {
-                    if (IsJsonTokenMessage(pushes->first) || IsJsonTokenMessage(pushes->joined)) {
-                        MaybeReject("tokens-json");
-                    }
-                    if (IsOmniMessage(pushes->first, pushes->joined)) {
-                        MaybeReject("tokens-omni");
-                    }
-                }
-            }
+            null_data_outs.push_back(i);
             nDataOut++;
             continue;
         }
@@ -449,6 +441,21 @@ bool IsStandardTx(const CTransaction& tx, const kernel::MemPoolOptions& opts, st
     // only one OP_RETURN txout is permitted
     if (nDataOut > 1) {
         MaybeReject("multi-op-return");
+    }
+
+    // Token messages are looked for only after the check above, so a peer can make this read one
+    // OP_RETURN script per transaction, not every output of a transaction refused anyway.
+    if (opts.reject_token_messages) {
+        for (const size_t i : null_data_outs) {
+            if (const auto pushes{GetNullDataPushes(tx.vout[i].scriptPubKey)}) {
+                if (IsJsonTokenMessage(pushes->first) || IsJsonTokenMessage(pushes->joined)) {
+                    MaybeReject("tokens-json");
+                }
+                if (IsOmniMessage(pushes->first, pushes->joined)) {
+                    MaybeReject("tokens-omni");
+                }
+            }
+        }
     }
 
     if (!n_monetary) {
