@@ -6,7 +6,7 @@ export const manifest = setupManifest({
   title: 'Plumb',
   license: 'MIT',
   donationUrl: null,
-  packageRepo: 'https://github.com/plumb-node/plumb-startos',
+  packageRepo: 'https://github.com/plumb-node/plumb/tree/startos',
   upstreamRepo: 'https://github.com/plumb-node/plumb',
   marketingUrl: 'https://github.com/plumb-node/plumb',
   description: { short, long },
