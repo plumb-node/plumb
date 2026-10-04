@@ -15,8 +15,7 @@ Branch layout
 Releases are signed tags on that branch:
 `v<knots version>.plumb<N>`, with `N` counting up from 1 on each Knots base.
 The same `N` goes in `CLIENT_VERSION_SUFFIX` in `CMakeLists.txt`, which is
-what the version string and the user agent come from: peers see
-`/Satoshi:29.4.2/Knots:20260508.plumbN/`, the Knots field with the suffix.
+what the version string and the `/Plumb:N/` user agent field come from.
 
 Adding a filter
 ---------------
