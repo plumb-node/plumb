@@ -28,6 +28,11 @@ export const current = VersionInfo.of({
       ['^#knots:29.4']: {
         up: async ({ effects }) => {},
       },
+      // Switching back hands the data to the Knots release this one is built
+      // on, so the Knots package still runs its own migrations from there.
+      ['=#knots:29.4.2:3']: {
+        down: async ({ effects }) => {},
+      },
     },
   },
 })
