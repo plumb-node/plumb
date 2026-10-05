@@ -82,6 +82,10 @@ Releasing
 4. Create the GitHub release from the tag. The notes say which Knots release
    is underneath, which filters are in (with commits), and what changed since
    the last Plumb release.
+5. Build the x86_64 Linux tarball with
+   `plumb/tools/release-tarball/build-tarball.sh <tag>` (needs Docker), sign
+   the `SHA256SUMS` it writes with `gpg --detach-sign --armor SHA256SUMS`,
+   and upload the tarball, `SHA256SUMS` and `SHA256SUMS.asc` to the release.
 
 GitHub settings
 ---------------
