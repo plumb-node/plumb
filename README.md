@@ -46,8 +46,31 @@ the exact commit of each pull request that was merged.
 Getting it
 ----------
 
-Plumb is distributed as source. Releases are signed git tags named after the
-Knots release they are built on, for example `v29.4.2.knots20260508.plumb5`.
+Releases are signed git tags named after the Knots release they are built
+on, for example `v29.4.2.knots20260508.plumb5`. Each release page carries
+the source and, from plumb5 on, a pre-built `bitcoind` and `bitcoin-cli`
+for x86_64 Linux.
+
+### Pre-built, x86_64 Linux
+
+The tarball runs on any x86_64 Linux with glibc 2.31 or newer: Debian 11,
+Ubuntu 20.04, RHEL 9 and everything later. Download it together with
+`SHA256SUMS` and `SHA256SUMS.asc` from the release page, then:
+
+```sh
+gpg --keyserver hkps://keys.openpgp.org --recv-keys 89F0E41D72CE523F4AA1CDB692CDFFB7C40CD1BA
+gpg --verify SHA256SUMS.asc SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
+tar xzf bitcoin-*-x86_64-linux-gnu.tar.gz
+sudo install -m 0755 bitcoin-*/bin/bitcoind bitcoin-*/bin/bitcoin-cli /usr/local/bin/
+```
+
+Install nothing until `gpg --verify` reports a good signature from Jason
+Sopko and `sha256sum` says `OK`. It is one person's build on one machine,
+not a reproducible build; the recipe is
+[plumb/tools/release-tarball](plumb/tools/release-tarball).
+
+### From source
 
 ```sh
 git clone https://github.com/plumb-node/plumb
