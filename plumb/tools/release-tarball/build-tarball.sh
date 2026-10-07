@@ -28,6 +28,11 @@ if ! raw=$(git -C "$REPO" verify-tag --raw "$TAG" 2>&1) \
   printf '%s\n' "$raw"
   echo "tag is not signed by the Plumb key $SIGNER, stopping"; exit 1
 fi
+# A genuine older tag stored under a newer name still has a good signature. The signed tag
+# object records the name it was made with, so compare that.
+obj=$(git -C "$REPO" cat-file tag "$TAG")
+[ "$(awk '/^$/ { exit } $1 == "tag" { print $2 }' <<<"$obj")" = "$TAG" ] \
+  || { echo "the signed tag object is not named $TAG, stopping"; exit 1; }
 tree=$(git -C "$REPO" rev-parse "$TAG^{tree}")
 export SOURCE_DATE_EPOCH=$(git -C "$REPO" log -1 --format=%ct "$TAG^{commit}")
 
