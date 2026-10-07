@@ -2,8 +2,9 @@
 #
 # Debian 11 (glibc 2.31) with GCC 12.3: the same glibc floor the Bitcoin Knots
 # and Bitcoin Core release binaries have, so the result runs on Debian 11,
-# Ubuntu 20.04, RHEL 9 and anything newer. Every other library comes from the
-# depends system in the source tree and is linked in statically.
+# Ubuntu 20.04, RHEL 9 and anything newer. libstdc++ from this GCC and every
+# library from the depends system are linked in statically; only glibc and
+# GCC's libgcc_s come from the system at run time.
 FROM gcc:12.3.0-bullseye@sha256:5e1768ffd3230192358cfbde63443750f8f78f160a449d25007de9828c41976d
 
 # Debian 11 left support in August 2026 and its package mirror no longer serves
