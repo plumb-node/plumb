@@ -2,7 +2,7 @@
 # Runs inside the build image (see Dockerfile). Builds bitcoind and bitcoin-cli
 # for x86_64 Linux from the release tree mounted at /src, the way the Knots
 # release builds do: every library from the depends system, libstdc++ linked
-# in, glibc (2.31 here) the only thing taken from the system.
+# in, only glibc (2.31 here) and GCC's libgcc_s taken from the system.
 #
 #   /src   the release tree, extracted from the signed tag (written to: depends and build/)
 #   /out   results: the tarball's contents, logs, build-info.txt
