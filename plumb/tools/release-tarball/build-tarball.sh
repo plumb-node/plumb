@@ -10,7 +10,7 @@
 # build-info.txt and the full log. Nothing here signs or uploads anything.
 #
 # Environment: JOBS (default 2), CPUS (default 4), MEMORY (default 4000m): what the
-# container may use. Two jobs fit in 4 GB; raise both together on a bigger machine.
+# container may use. Two jobs fit in 4 GB; raise them together on a bigger machine.
 set -euo pipefail
 TAG=${1:?tag, for example v29.4.2.knots20260508.plumb5}
 HERE=$(cd "$(dirname "$0")" && pwd)
