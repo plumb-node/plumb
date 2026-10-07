@@ -2,8 +2,20 @@ Release tarball for x86_64 Linux
 ================================
 
 How the pre-built `bitcoind` and `bitcoin-cli` on a release page are made.
+It needs Docker on an x86_64 Linux machine, which can be a faster PC than
+your node: copy the tarball over when it is done.
 
-    plumb/tools/release-tarball/build-tarball.sh v29.4.2.knots20260508.plumb5
+    plumb/tools/release-tarball/build-tarball.sh <tag> [work dir]
+
+The tag must carry a good signature from the Plumb tag key,
+`89F0 E41D 72CE 523F 4AA1  CDB6 92CD FFB7 C40C D1BA`, so import that key first
+(the top-level README says where to get it). The work dir defaults to
+`~/scratch/plumb-release-<tag>` and the results land in its `out/`. `JOBS`
+(default 2), `CPUS` (default 4) and `MEMORY` (default `4000m`) set what the
+container may use. Two jobs fit in 4 GB, so raise them together on a bigger
+machine:
+
+    JOBS=8 CPUS=8 MEMORY=16g plumb/tools/release-tarball/build-tarball.sh <tag> ~/plumb-build
 
 - `Dockerfile`: Debian 11 with GCC 12.3 (the official `gcc:12.3.0-bullseye`
   image, pinned by digest), plus a current CMake and `lief` from PyPI. Debian
