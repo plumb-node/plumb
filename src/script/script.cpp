@@ -826,12 +826,9 @@ static size_t CountWitnessSignatures(const CScriptWitness& witness)
  */
 static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* witness, const bool bare_envelopes)
 {
-    /**
-     * Unproven pubkeys a script may carry before the rest are counted as data. Since the fork
-     * real wallets leave at most 10 keys unsigned (a 2-of-3 vault with timelocked 2-of-3 and
-     * 3-of-6 recovery branches; 8 for a plain 4-of-12), while the bpub encoder leaves 14 in
-     * each 1-of-15 input.
-     */
+    /** Unproven pubkeys a script may carry before the rest are counted as data. Set so that ordinary
+     *  multisig, including wide federations, is charged nothing at all: the budget is per
+     *  transaction, so any per-input charge accumulates across inputs and would reject real spends. */
     static constexpr size_t MAX_UNPROVEN_PUBKEYS{10};
 
     size_t pubkeys{0}, provable{0};

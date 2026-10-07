@@ -246,14 +246,17 @@ class DataCarrierTest(BitcoinTestFramework):
         self.log.info("Testing that -rejectbareenvelopes=0 lets the large bare envelope through.")
         self.test_bare_envelope(node=self.nodes[4], data_len=MAX_OP_RETURN_RELAY, success=True)
 
-        self.log.info("Testing ordinary multisig, whose spare keys stay within -datacarriersize.")
+        self.log.info("Testing ordinary multisig, which is charged nothing however wide.")
         self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=2, n=3, success=True)
         self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=3, n=5, success=True)
+        self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=2, n=6, success=True)
         self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=11, n=15, success=True)
         self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=14, n=17, success=True)
+        # Several inputs of the same shape, since the budget is per transaction
+        self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=2, n=5, success=True, num_inputs=3)
 
         self.log.info("Testing a multisig padded out with keys no signature can prove.")
-        self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=1, n=5, success=True)
+        self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=1, n=11, success=True)
         self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=1, n=15, success=False)
 
         self.log.info("Testing that -datacarriersize governs the spare keys, and that multisig "
@@ -261,8 +264,8 @@ class DataCarrierTest(BitcoinTestFramework):
         self.test_unproven_pubkeys_transaction(node=self.nodes[3], m=2, n=3, success=True)
         self.test_unproven_pubkeys_transaction(node=self.nodes[3], m=1, n=12, success=False)
 
-        self.log.info("Testing that the tolerance is per script, so the spare keys of several "
-                      "wide multisig inputs add up over a transaction.")
+        self.log.info("Testing that what is charged is charged per script, so it adds up over "
+                      "the inputs of a transaction.")
         self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=1, n=12, success=True, num_inputs=2)
         self.test_unproven_pubkeys_transaction(node=self.nodes[0], m=1, n=12, success=False, num_inputs=3)
 

@@ -1809,25 +1809,26 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_unproven_pubkeys)
 
     // A key a signature is offered for is a spending condition, not data
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(CScript() << zeros(33) << OP_CHECKSIG));
-    // Ordinary multisig keeps its spare keys: the ones a spend never proves
+    // Ordinary multisig is charged nothing, however wide, because the budget is per transaction
+    // and any per-input charge would accumulate across the inputs of a real spend
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(2, 3)));
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(3, 5)));
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(1, 3)));
-    // Past the tolerance, every further key is payload. A wide multisig spends real budget:
-    // 2-of-5 and 11-of-15 stay under the 83 byte default, but not several times over in one tx.
-    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(1, 4)));
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(2, 5)));
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(2, 6)));
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(3, 9)));
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(11, 15)));
     // Above 16 the key count is a minimal one byte push rather than an OP_N, and still counts
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(17, 20)));
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(20, 20)));
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(19, 20)));
+    // The boundary: eleven keys behind one signature is free, twelve starts paying
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(1, 11)));
+    BOOST_CHECK_EQUAL("33+0", DatacarrierBytesStr(MultisigScript(1, 12)));
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15)));
     // Uncompressed keys carry no more payload, so they are charged the same
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15, 65)));
-    // Ten unproven keys per script: a 1-of-11 passes and a 1-of-12 is charged its eleventh key
-    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(1, 11)));
-    BOOST_CHECK_EQUAL("33+0", DatacarrierBytesStr(MultisigScript(1, 12)));
+    // A plain 4-of-12 leaves eight keys unsigned, within the allowance
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(4, 12)));
     // The widest real wallet since the fork: a 2-of-3 with a timelocked 2-of-3 and a 3-of-6
     // behind it, 12 keys, spent with two signatures and empty ones for the branches it skips
@@ -1856,14 +1857,14 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_unproven_pubkeys)
     evasion << OP_ENDIF;
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(evasion));
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(evasion, MultisigWitness(1, evasion)));
-    // A real 11-of-15 spend offers the signatures it names, so the cap does not bite
+    // A real 11-of-15 spend is charged nothing whether or not the witness is seen
     const CScript multisig{MultisigScript(11, 15)};
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(multisig, MultisigWitness(11, multisig)));
     // An empty witness means the signatures are elsewhere (P2SH), so the script is believed
     BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(multisig, CScriptWitness()));
     // The witnessScript itself is not a signature, however close to one in size
     BOOST_CHECK_EQUAL("165+0", DatacarrierBytesStr(MultisigScript(1, 15), MultisigWitness(0, MultisigScript(1, 15))));
-    // ... whereas offering one signature for the same script leaves ten keys unproven
+    // ... whereas offering one signature for the same script leaves fourteen keys unproven
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(multisig, MultisigWitness(1, multisig)));
 
     // Breaking the key run forfeits the m credit rather than earning one
