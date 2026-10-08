@@ -50,8 +50,8 @@ docker run --rm --name plumb-release-build \
   --cpus="$CPUS" --memory="$MEMORY" --memory-swap="$MEMORY" \
   --user "$(id -u):$(id -g)" -e HOME=/tmp -e JOBS="$JOBS" -e SOURCE_DATE_EPOCH \
   -v "$W/src:/src" -v "$W/out:/out" -v "$W/deps:/deps" -v "$HERE/inside.sh:/inside.sh:ro" \
-  "$IMAGE" bash /inside.sh 2>&1 | tee "$W/out/build.log"
-[ "${PIPESTATUS[0]}" = 0 ] || { echo "BUILD FAILED, see $W/out/build.log"; exit 1; }
+  "$IMAGE" bash /inside.sh 2>&1 | tee "$W/out/build.log" \
+  || { echo "BUILD FAILED, see $W/out/build.log"; exit 1; }
 
 cd "$W/out"
 tarball=$(ls bitcoin-*-x86_64-linux-gnu.tar.gz)
