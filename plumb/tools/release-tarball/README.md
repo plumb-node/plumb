@@ -30,8 +30,8 @@ machine:
   binaries before they are stripped (the security check looks up `main`,
   which stripping removes), starts a regtest node and stops it, then packs
   `bitcoin-<version>/bin/{bitcoind,bitcoin-cli}` into
-  `bitcoin-<version>-x86_64-linux-gnu.tar.gz` with fixed owners and the tag's
-  commit time as every mtime.
+  `bitcoin-<version>-<x86_64 or aarch64>-linux-gnu.tar.gz` with fixed owners
+  and the tag's commit time as every mtime.
 - `build-tarball.sh`: verifies the tag's signature, extracts it with
   `git archive`, builds the image, runs `inside.sh`, writes `SHA256SUMS`.
 
@@ -66,6 +66,7 @@ same signature:
 
     cat <x86_64 work dir>/out/SHA256SUMS <aarch64 work dir>/out/SHA256SUMS > SHA256SUMS
     gpg --detach-sign --armor SHA256SUMS
+
 `build-info.txt` next to them records the toolchain, flags and the highest
 glibc symbol version the binary needs.
 
