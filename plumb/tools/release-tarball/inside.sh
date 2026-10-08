@@ -1,24 +1,30 @@
 #!/bin/bash
 # Runs inside the build image (see Dockerfile). Builds bitcoind and bitcoin-cli
-# for x86_64 Linux from the release tree mounted at /src, the way the Knots
-# release builds do: every library from the depends system, libstdc++ linked
-# in, only glibc (2.31 here) and GCC's libgcc_s taken from the system.
+# for the container's own architecture (HOST, TRIPLET from build-tarball.sh)
+# from the release tree mounted at /src, the way the Knots release builds do:
+# every library from the depends system, libstdc++ linked in, only glibc (2.31
+# here) and GCC's libgcc_s taken from the system.
 #
 #   /src   the release tree, extracted from the signed tag (written to: depends and build/)
 #   /out   results: the tarball's contents, logs, build-info.txt
 #   /deps  depends download and build cache, kept between runs
 set -euo pipefail
 JOBS=${JOBS:-3}
-HOST=x86_64-pc-linux-gnu
+HOST=${HOST:-x86_64-pc-linux-gnu} TRIPLET=${TRIPLET:-x86_64-linux-gnu}
 : "${SOURCE_DATE_EPOCH:?set to the commit time of the tag}"
 export LC_ALL=C TZ=UTC
+# Output is cut with sed -n, never head: head exits early, the writer can then die of
+# SIGPIPE, and pipefail stops the build. Under QEMU that race is lost every time.
 
 step() { printf '\n=== %s  (%s)\n' "$1" "$(date -u +%FT%TZ)"; }
 
 step "toolchain"
-gcc --version | head -1
-ldd --version | head -1
-cmake --version | head -1
+# A HOST that is not this machine would make depends look for a cross compiler.
+[ "$(sh /src/depends/config.guess)" = "$HOST" ] || { echo "HOST $HOST is not this machine ($(sh /src/depends/config.guess))"; exit 1; }
+uname -m
+gcc --version | sed -n 1p
+ldd --version | sed -n 1p
+cmake --version | sed -n 1p
 python3 -c 'import lief; print("lief", lief.__version__)'
 
 step "depends ($HOST, no Qt, no USDT)"
@@ -60,8 +66,8 @@ ls -l /out/stage/bin
 step "the stripped binaries"
 cd /out/stage/bin
 ldd ./bitcoind
-./bitcoind -version | head -1
-./bitcoin-cli -version | head -1
+./bitcoind -version | sed -n 1p
+./bitcoin-cli -version | sed -n 1p
 
 step "regtest smoke"
 D=$(mktemp -d)
@@ -70,14 +76,14 @@ D=$(mktemp -d)
 ./bitcoin-cli -regtest -datadir="$D" getmempoolinfo | grep -E '"(maxdatacarriersize|loaded)"' || true
 ./bitcoin-cli -regtest -datadir="$D" stop >/dev/null
 sleep 2
-grep -E 'Plumb filter' "$D/regtest/debug.log" | sed 's/^[^ ]* //' | head -8
+grep -E 'Plumb filter' "$D/regtest/debug.log" | sed 's/^[^ ]* //' | sed -n 1,8p
 rm -rf "$D"
 
 step "package"
 VER=$(./bitcoind -version | sed -n '1s/.* version v//p')
 [ -n "$VER" ]
 DIST="bitcoin-$VER"
-TARBALL="$DIST-x86_64-linux-gnu.tar.gz"
+TARBALL="$DIST-$TRIPLET.tar.gz"
 rm -rf "/out/$DIST" "/out/$TARBALL"
 mkdir -p "/out/$DIST/bin"
 cp ./bitcoind ./bitcoin-cli "/out/$DIST/bin/"
@@ -87,9 +93,9 @@ tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owne
     -cf - "$DIST" | gzip -9n > "$TARBALL"
 sha256sum "$TARBALL" "$DIST/bin/bitcoind" "$DIST/bin/bitcoin-cli" | tee /out/sha256.txt
 
-GLIBC_VER=$(ldd --version | head -1 | awk '{print $NF}')
-GCC_VER=$(gcc --version | head -1)
-CMAKE_VER=$(cmake --version | head -1 | awk '{print $NF}')
+GLIBC_VER=$(ldd --version | sed -n 1p | awk '{print $NF}')
+GCC_VER=$(gcc --version | sed -n 1p)
+CMAKE_VER=$(cmake --version | sed -n 1p | awk '{print $NF}')
 GLIBC_NEEDED=$(objdump -T "$DIST/bin/bitcoind" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)
 {
   echo "built: $(date -u +%FT%TZ)"
