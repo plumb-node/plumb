@@ -88,6 +88,9 @@ Releasing
    Docker, and QEMU for aarch64; see that folder's README), sign one
    `SHA256SUMS` listing both, and upload both tarballs, `SHA256SUMS` and
    `SHA256SUMS.asc` to the release.
+6. Point knots-datum-node at the release: in that repository,
+   `tools/bump-plumb.sh <knots version>.plumb<N>` checks the release and
+   changes the version in its three places. Commit, tag and release it.
 
 GitHub settings
 ---------------
