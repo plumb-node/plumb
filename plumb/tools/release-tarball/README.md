@@ -1,11 +1,12 @@
-Release tarball for x86_64 Linux
-================================
+Release tarballs for x86_64 and aarch64 Linux
+=============================================
 
 How the pre-built `bitcoind` and `bitcoin-cli` on a release page are made.
 It needs Docker on an x86_64 Linux machine, which can be a faster PC than
 your node: copy the tarball over when it is done.
 
     plumb/tools/release-tarball/build-tarball.sh <tag> [work dir]
+    ARCH=aarch64 plumb/tools/release-tarball/build-tarball.sh <tag> [work dir]
 
 The tag must carry a good signature from the Plumb tag key,
 `89F0 E41D 72CE 523F 4AA1  CDB6 92CD FFB7 C40C D1BA`, so import that key first
@@ -34,8 +35,37 @@ machine:
 - `build-tarball.sh`: verifies the tag's signature, extracts it with
   `git archive`, builds the image, runs `inside.sh`, writes `SHA256SUMS`.
 
-Signing and uploading are by hand: `gpg --detach-sign --armor SHA256SUMS`,
-then the tarball, `SHA256SUMS` and `SHA256SUMS.asc` go on the release.
+aarch64 (64-bit ARM)
+--------------------
+
+`ARCH=aarch64` runs the same image for `linux/arm64` (the pinned digest is
+the multi-platform index) and builds natively inside it, so on an x86_64
+machine every compiler run goes through QEMU. Register QEMU with the kernel
+first; on Debian or Ubuntu that is `sudo apt-get install qemu-user-static`.
+It is slow: with the defaults on a 12-core machine, plumb6 took four hours,
+against about 20 minutes for x86_64. The work dir defaults to
+`~/scratch/plumb-release-<tag>-aarch64` and the tarball is named
+`bitcoin-<version>-aarch64-linux-gnu.tar.gz`. The glibc floor is the same,
+2.31. On an aarch64 machine the same command should build without QEMU;
+that has not been tried.
+
+To run the result on an x86_64 machine for testing, QEMU also needs the
+arm64 system libraries, for example from a Debian 11 arm64 image:
+
+    mkdir -p ~/arm64-root
+    c=$(docker create --platform linux/arm64 debian:bullseye-slim); docker export "$c" | tar -x -C ~/arm64-root lib usr/lib; docker rm "$c"
+    QEMU_LD_PREFIX=~/arm64-root bitcoin-<version>/bin/bitcoind -datadir="$(mktemp -d)" -version
+
+Signing and uploading
+---------------------
+
+By hand. With one tarball: `gpg --detach-sign --armor SHA256SUMS`, then the
+tarball, `SHA256SUMS` and `SHA256SUMS.asc` go on the release. With both,
+sign one `SHA256SUMS` that lists both, so either download checks against the
+same signature:
+
+    cat <x86_64 work dir>/out/SHA256SUMS <aarch64 work dir>/out/SHA256SUMS > SHA256SUMS
+    gpg --detach-sign --armor SHA256SUMS
 `build-info.txt` next to them records the toolchain, flags and the highest
 glibc symbol version the binary needs.
 
