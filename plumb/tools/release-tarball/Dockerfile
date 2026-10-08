@@ -1,4 +1,5 @@
-# Build image for Plumb's x86_64 Linux release binaries.
+# Build image for Plumb's x86_64 and aarch64 Linux release binaries. The pinned
+# digest is the multi-platform index; build-tarball.sh picks the platform.
 #
 # Debian 11 (glibc 2.31) with GCC 12.3: the same glibc floor the Bitcoin Knots
 # and Bitcoin Core release binaries have, so the result runs on Debian 11,
