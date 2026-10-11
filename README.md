@@ -43,6 +43,20 @@ Plumb filter -rejecttokenmessages=1 (plumb#2)
 The machine-readable list is [plumb/filters.json](plumb/filters.json), with
 the exact commit of each pull request that was merged.
 
+Recommended bitcoin.conf
+------------------------
+
+[plumb/conf/plumb.conf](plumb/conf/plumb.conf) for Plumb and
+[plumb/conf/knots.conf](plumb/conf/knots.conf) for Knots, the same files as
+on [cesspool.lol/check](https://cesspool.lol/check/#settings), which also
+has the settings for Umbrel and StartOS. Each writes its filter settings
+out, so a `corepolicy=1` set elsewhere can no longer reset them (it still
+changes settings they do not set, such as the minimum relay fee), and sets
+two values stricter than the defaults: `datacarriersize=42` and
+`datacarriercost=2`. The comment above each says what it does. If your
+`bitcoin.conf` already sets one of these options, change or remove that
+line rather than adding a second one.
+
 Getting it
 ----------
 
