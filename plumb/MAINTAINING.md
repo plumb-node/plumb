@@ -91,6 +91,9 @@ Releasing
 6. Point knots-datum-node at the release: in that repository,
    `tools/bump-plumb.sh <knots version>.plumb<N>` checks the release and
    changes the version in its three places. Commit, tag and release it.
+7. Once cesspool.lol grades with the new release, copy its
+   `/check/plumb.conf` and `/check/knots.conf` over `plumb/conf/` and to
+   plumbnode.org.
 
 GitHub settings
 ---------------
