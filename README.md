@@ -52,8 +52,10 @@ on [cesspool.lol/check](https://cesspool.lol/check/#settings), which also
 has the settings for Umbrel and StartOS. Each writes its filter settings
 out, so a `corepolicy=1` set elsewhere can no longer reset them (it still
 changes settings they do not set, such as the minimum relay fee), and sets
-two values stricter than the defaults: `datacarriersize=42` and
-`datacarriercost=2`. The comment above each says what it does. If your
+three values stricter than the defaults: `datacarriersize=42`,
+`datacarriercost=2` and `bytespersigopstrict=51`. The comment above each
+says what it does; [cesspool.lol](https://cesspool.lol/check/#fake-multisig)
+explains the third, which refuses most fake multisig. If your
 `bitcoin.conf` already sets one of these options, change or remove that
 line rather than adding a second one.
 
