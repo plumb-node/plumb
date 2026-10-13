@@ -1618,6 +1618,21 @@ BOOST_AUTO_TEST_CASE(tx_DataOutputBytes)
     got = DataOutputBytes(CTransaction{t}, &run_coins);
     expect = {0, 41, 41};
     BOOST_CHECK_EQUAL_COLLECTIONS(got.begin(), got.end(), expect.begin(), expect.end());
+    // Two inputs spending one script and one spending another exempt every output
+    // that pays either script, and nothing else; the third input's script looks
+    // like data, so it is only exempt if that input is still looked up
+    const COutPoint second{vanity.vin[0].prevout.hash, vanity.vin[0].prevout.n + 1};
+    const COutPoint third{vanity.vin[0].prevout.hash, vanity.vin[0].prevout.n + 2};
+    CCoinsViewCache many_coins(&coins_dummy);
+    many_coins.AddCoin(vanity.vin[0].prevout, Coin{CTxOut{1000, vanity_spk}, 1, false}, false);
+    many_coins.AddCoin(second, Coin{CTxOut{1000, vanity_spk}, 1, false}, false);
+    many_coins.AddCoin(third, Coin{CTxOut{1000, p2wsh(run6)}, 1, false}, false);
+    t.vin = {vanity.vin[0], CTxIn{second}, CTxIn{third}};
+    t.vout = {CTxOut{5000, vanity_spk}, CTxOut{5000, zeros_p2pkh}, CTxOut{5000, vanity_spk}, CTxOut{5000, p2wsh(run6)}};
+    got = DataOutputBytes(CTransaction{t}, &many_coins);
+    expect = {0, 29, 0, 0};
+    BOOST_CHECK_EQUAL_COLLECTIONS(got.begin(), got.end(), expect.begin(), expect.end());
+    t.vin = {vanity.vin[0]};
     // Only hash and key outputs are looked at, so a bare script that repeats a
     // spent coin's, such as bare multisig with data keys, counts as before
     std::vector<unsigned char> real_key{0x02}, data_key{0x03};
