@@ -260,8 +260,9 @@ static constexpr unsigned int DATA_OUTPUT_CURVE_CHECKS{64};
  * length and amount, as counted for OLGA), or 0 for a real output or one the
  * OLGA detector already counts. With a view, an output whose script is the
  * script of a coin the transaction spends is real and never counted: the
- * spender can spend that coin, and a chosen hash or key costs about 2^160
- * work, so the most it can carry is a ground prefix such as a vanity address.
+ * spender can spend that coin, and a chosen hash or key costs at least 2^128
+ * work (a taproot key's discrete log), so the most it can carry is a ground
+ * prefix such as a vanity address.
  */
 std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCache* view = nullptr);
 
