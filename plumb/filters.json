@@ -6,11 +6,11 @@
     "url": "https://github.com/bitcoinknots/bitcoin/pull/389",
     "upstream": "open",
     "branch": "filter/rejectfakeoutputs",
-    "commit": "34ce3a5763f2527f62135338ddf6a75d052048a3",
+    "commit": "6d929d77d960bef2f5462e662cfd47d897b2d794",
     "summary": "Counts outputs whose hash or key is data as data carrier bytes",
     "since": "v29.4.2.knots20260508.plumb1",
     "catches": "Data hidden in the hashes and keys of outputs. A real hash or x-only key looks random, so one byte value eight times in a program, a run of six identical bytes, or a taproot key that is not on the curve marks it as data, along with its same-type, same-value siblings. Three or more P2WSH outputs sharing one value of 546 sat or less also count: file encoders pay every chunk the same dust amount.",
-    "passes": "Payments to every address type, batched payments and pool payouts. The all-zero burn hash used by Stacks block commits is exempt.",
+    "passes": "Payments to every address type, batched payments and pool payouts. The all-zero burn hash used by Stacks block commits is exempt, and so is an output that pays the script of a coin the transaction spends, such as change back to a vanity address.",
     "example": {
       "txid": "f93ee9d2a8d6fc0dce7889732d8e288ca64dacfe4c94c6cd76eb85037daea09c",
       "height": 965224,
