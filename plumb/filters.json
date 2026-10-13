@@ -6,7 +6,7 @@
     "url": "https://github.com/bitcoinknots/bitcoin/pull/389",
     "upstream": "open",
     "branch": "filter/rejectfakeoutputs",
-    "commit": "6d929d77d960bef2f5462e662cfd47d897b2d794",
+    "commit": "e4545aa4c10260f1968bcfff2f7c983315b4b319",
     "summary": "Counts outputs whose hash or key is data as data carrier bytes",
     "since": "v29.4.2.knots20260508.plumb1",
     "catches": "Data hidden in the hashes and keys of outputs. A real hash or x-only key looks random, so one byte value eight times in a program, a run of six identical bytes, or a taproot key that is not on the curve marks it as data, along with its same-type, same-value siblings. Three or more P2WSH outputs sharing one value of 546 sat or less also count: file encoders pay every chunk the same dust amount.",
