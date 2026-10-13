@@ -3,8 +3,9 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test outputs whose hash or key is data, and -rejectfakeoutputs"""
-from test_framework.messages import CTxOut
-from test_framework.script_util import program_to_witness_script
+from test_framework.messages import COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut
+from test_framework.script import CScript, OP_2, OP_3, OP_TRUE
+from test_framework.script_util import program_to_witness_script, script_to_p2wsh_script
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_node import TestNode
 from test_framework.util import assert_raises_rpc_error
@@ -85,6 +86,33 @@ class DataOutputsTest(BitcoinTestFramework):
 
         self.log.info("Testing that an output to the all-zero burn hash is not data.")
         self.test_data_output_transaction(node=default, outputs=[(20000, program_to_witness_script(0, bytes(20)))], reject_reason=None)
+
+        self.log.info("Testing that outputs paying back the scripts of the coins spent are not data.")
+        # A run of three 330-sat P2WSH outputs is data unless each pays a script the
+        # transaction spends: then the spender holds those scripts and chose nothing in them.
+        scripts = [CScript([OP_TRUE]), CScript([OP_2]), CScript([OP_3])]
+        fund = self.wallet.create_self_transfer(fee_rate=0, confirmed_only=True)["tx"]
+        for script in scripts:
+            fund.vout.append(CTxOut(nValue=330, scriptPubKey=script_to_p2wsh_script(script)))
+        fund.vout[0].nValue -= 3 * 330 + fund.get_vsize()
+        self.wallet.sendrawtransaction(from_node=disabled, tx_hex=fund.serialize().hex())
+        # The other nodes refuse the funding run, so only the block can sync
+        self.generate(disabled, 1, sync_fun=self.no_op)
+        self.sync_blocks()
+        fund_txid = int(fund.rehash(), 16)
+        fee_utxo = self.wallet.get_utxo(confirmed_only=True)
+        spend = CTransaction()
+        spend.vin = [CTxIn(COutPoint(int(fee_utxo["txid"], 16), fee_utxo["vout"]))] + [CTxIn(COutPoint(fund_txid, i + 1)) for i in range(len(scripts))]
+        spend.vout = [CTxOut(nValue=330, scriptPubKey=script_to_p2wsh_script(script)) for script in scripts]
+        spend.vout.append(CTxOut(nValue=int(fee_utxo["value"] * 100_000_000) - 1000, scriptPubKey=self.wallet.get_output_script()))
+        self.wallet.sign_tx(spend)
+        wallet_stack = list(spend.wit.vtxinwit[0].scriptWitness.stack)
+        spend.wit.vtxinwit = [CTxInWitness() for _ in spend.vin]
+        spend.wit.vtxinwit[0].scriptWitness.stack = wallet_stack
+        for i, script in enumerate(scripts):
+            spend.wit.vtxinwit[i + 1].scriptWitness.stack = [script]
+        self.wallet.sendrawtransaction(from_node=default, tx_hex=spend.serialize().hex())
+        assert spend.rehash() in default.getrawmempool()
 
 
 if __name__ == '__main__':
