@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <string_view>
@@ -680,9 +681,25 @@ bool ProgramLooksLikeData(const std::vector<unsigned char>& program)
 
 } // namespace
 
-std::vector<size_t> DataOutputBytes(const CTransaction& tx)
+std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCache* view)
 {
     const size_t n{tx.vout.size()};
+    // Outputs that pay the script of a coin this transaction spends, such as change
+    // back to a vanity address; looked up by script without copying any
+    std::vector<bool> spent(n, false);
+    if (view && n) {
+        std::vector<size_t> by_script(n);
+        std::iota(by_script.begin(), by_script.end(), 0);
+        const auto script_order = [&tx](size_t a, size_t b) { return tx.vout[a].scriptPubKey < tx.vout[b].scriptPubKey; };
+        std::sort(by_script.begin(), by_script.end(), script_order);
+        for (const CTxIn& txin : tx.vin) {
+            const Coin& coin{view->AccessCoin(txin.prevout)};
+            if (coin.IsSpent()) continue;
+            const CScript& script{coin.out.scriptPubKey};
+            auto it{std::lower_bound(by_script.begin(), by_script.end(), script, [&tx](size_t a, const CScript& s) { return tx.vout[a].scriptPubKey < s; })};
+            for (; it != by_script.end() && tx.vout[*it].scriptPubKey == script; ++it) spent[*it] = true;
+        }
+    }
     std::vector<size_t> program_size(n, 0);
     std::vector<TxoutType> types(n, TxoutType::NONSTANDARD);
     std::vector<bool> in_run(n, false);
@@ -703,7 +720,9 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx)
         const auto program{OutputProgram(txout.scriptPubKey, types[i])};
         if (program.empty()) continue;
         program_size[i] = program.size();
-        if (ProgramLooksLikeData(program)) {
+        if (spent[i]) {
+            // A real hash or key, whatever it looks like
+        } else if (ProgramLooksLikeData(program)) {
             data[i] = true;
         } else if (types[i] == TxoutType::WITNESS_V1_TAPROOT && curve_checks < DATA_OUTPUT_CURVE_CHECKS) {
             // Not a point on the curve: nobody can ever spend this. The check
@@ -733,7 +752,7 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx)
     }
     std::vector<size_t> ret(n, 0);
     for (size_t i{0}; i < n; ++i) {
-        if (!program_size[i]) continue;
+        if (!program_size[i] || spent[i]) continue;
         const bool sibling{data_groups.count({types[i], tx.vout[i].nValue}) > 0};
         const bool dust_run{in_run[i] && run_programs[tx.vout[i].nValue].size() >= DATA_OUTPUT_DUST_RUN};
         if (data[i] || sibling || dust_run) {

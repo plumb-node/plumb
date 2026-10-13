@@ -258,9 +258,12 @@ static constexpr unsigned int DATA_OUTPUT_CURVE_CHECKS{64};
  * Find outputs whose hash or key field carries data rather than a hash or key.
  * Returns, per output, the bytes it spends on that data (program, script
  * length and amount, as counted for OLGA), or 0 for a real output or one the
- * OLGA detector already counts.
+ * OLGA detector already counts. With a view, an output whose script is the
+ * script of a coin the transaction spends is real and never counted: the
+ * spender can spend that coin, and a chosen hash or key costs about 2^160
+ * work, so the most it can carry is a ground prefix such as a vanity address.
  */
-std::vector<size_t> DataOutputBytes(const CTransaction& tx);
+std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCache* view = nullptr);
 
 std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs);
 
