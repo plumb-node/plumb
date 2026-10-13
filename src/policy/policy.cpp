@@ -709,6 +709,9 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCach
             if (coin.IsSpent()) continue;
             const CScript& script{coin.out.scriptPubKey};
             auto it{std::lower_bound(by_script.begin(), by_script.end(), script, [&tx](size_t a, const CScript& s) { return tx.vout[a].scriptPubKey < s; })};
+            // The outputs paying one script sit together and are marked together, so
+            // a script already seen is skipped: each output is visited at most once
+            if (it == by_script.end() || spent[*it]) continue;
             for (; it != by_script.end() && tx.vout[*it].scriptPubKey == script; ++it) spent[*it] = true;
         }
     }
