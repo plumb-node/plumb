@@ -1650,6 +1650,66 @@ BOOST_AUTO_TEST_CASE(tx_DataOutputBytes)
     const CScript burn_p2pkh{CScript() << OP_DUP << OP_HASH160 << std::vector<unsigned char>(20, 0) << OP_EQUALVERIFY << OP_CHECKSIG};
     t.vout = {CTxOut{294, burn}, CTxOut{294, p2wpkh}, CTxOut{20000, burn_p2pkh}};
     check(t, {0, 0, 0});
+
+    // Block 976,048, tx e2031ff1826b019dd59ece1bf1b20cb2ab43c63c2de674f5d8275b246d5319d0:
+    // spends from the vanity address 11111119536NnU2vPAvoQhvkheQ8ejYJ, whose hash
+    // starts with six zero bytes, and pays change back to it. Without the coins
+    // the run tell counts the change; with them it is a script the spender holds.
+    CMutableTransaction vanity_mtx;
+    BOOST_REQUIRE(DecodeHexTx(vanity_mtx, "02000000010387f422907c82855e4e53f8684610ed1ce82a989fa6d7220ca264fc79e9c24d010000006a47304402206d1b0c9185144d8265912f6604286e5c00b55a5f7c6212af53580ad7b20bf9cb0220589565b65bd13413ea639f7e357469c8abee7584c780974c4dcf5033c80643ec012102256dc642d51313476a3d419ae000f711761e72588f0427a3d48a1b3ff81eb0a9fdffffff02ec660000000000001976a914007e89662caa492338b6de553ba80de8b24c435388ac75dc0200000000001976a914000000000000c28e3cf80c3f84064ab17a0593b588ac2ece0e00"));
+    const CTransaction vanity{vanity_mtx};
+    const auto vanity_spk_bytes{"76a914000000000000c28e3cf80c3f84064ab17a0593b588ac"_hex_v_u8};
+    const CScript vanity_spk(vanity_spk_bytes.begin(), vanity_spk_bytes.end());
+    BOOST_CHECK(vanity.vout[1].scriptPubKey == vanity_spk);
+    const std::vector<size_t> vanity_counted{0, 29};
+    const std::vector<size_t> vanity_real{0, 0};
+    const auto vanity_no_view{DataOutputBytes(vanity)};
+    BOOST_CHECK_EQUAL_COLLECTIONS(vanity_no_view.begin(), vanity_no_view.end(), vanity_counted.begin(), vanity_counted.end());
+    CCoinsViewCache vanity_coins(&coins_dummy);
+    vanity_coins.AddCoin(vanity.vin[0].prevout, Coin{CTxOut{214264, vanity_spk}, 1, false}, false);
+    const auto vanity_bytes{DataOutputBytes(vanity, &vanity_coins)};
+    BOOST_CHECK_EQUAL_COLLECTIONS(vanity_bytes.begin(), vanity_bytes.end(), vanity_real.begin(), vanity_real.end());
+    BOOST_CHECK_EQUAL(DatacarrierBytes(vanity, vanity_coins, vanity_bytes).second, 0U);
+    // The same output spending a coin of another script is still counted
+    CCoinsViewCache other_coins(&coins_dummy);
+    other_coins.AddCoin(vanity.vin[0].prevout, Coin{CTxOut{214264, burn_p2pkh}, 1, false}, false);
+    const auto other_bytes{DataOutputBytes(vanity, &other_coins)};
+    BOOST_CHECK_EQUAL_COLLECTIONS(other_bytes.begin(), other_bytes.end(), vanity_counted.begin(), vanity_counted.end());
+
+    // Paying the spent script exempts that output only: a data output beside it
+    // still counts, and the exempt output is not marked as a sibling of one
+    t = vanity_mtx;
+    t.vout = {CTxOut{294, vanity_spk}, CTxOut{294, padded_p2wpkh}};
+    std::vector<size_t> got{DataOutputBytes(CTransaction{t}, &vanity_coins)};
+    std::vector<size_t> expect{0, 29};
+    BOOST_CHECK_EQUAL_COLLECTIONS(got.begin(), got.end(), expect.begin(), expect.end());
+    const CScript zeros_p2pkh{CScript() << OP_DUP << OP_HASH160 << "000000000000aa8e3cf80c3f84064ab17a0593b5"_hex_v_u8 << OP_EQUALVERIFY << OP_CHECKSIG};
+    t.vout = {CTxOut{5000, zeros_p2pkh}, CTxOut{5000, vanity_spk}};
+    got = DataOutputBytes(CTransaction{t}, &vanity_coins);
+    expect = {29, 0};
+    BOOST_CHECK_EQUAL_COLLECTIONS(got.begin(), got.end(), expect.begin(), expect.end());
+    // A spent script still counts toward a dust run, so it cannot break one up
+    CCoinsViewCache run_coins(&coins_dummy);
+    run_coins.AddCoin(vanity.vin[0].prevout, Coin{CTxOut{330, p2wsh(hash_a)}, 1, false}, false);
+    t.vout = {CTxOut{330, p2wsh(hash_a)}, CTxOut{330, p2wsh(hash_b)}, CTxOut{330, p2wsh(hash_c)}};
+    got = DataOutputBytes(CTransaction{t}, &run_coins);
+    expect = {0, 41, 41};
+    BOOST_CHECK_EQUAL_COLLECTIONS(got.begin(), got.end(), expect.begin(), expect.end());
+    // Only hash and key outputs are looked at, so a bare script that repeats a
+    // spent coin's, such as bare multisig with data keys, counts as before
+    std::vector<unsigned char> real_key{0x02}, data_key{0x03};
+    real_key.insert(real_key.end(), hash_e.begin(), hash_e.end());
+    data_key.insert(data_key.end(), 32, 'A');
+    const CScript bare_multisig{CScript() << OP_1 << real_key << data_key << OP_2 << OP_CHECKMULTISIG};
+    std::vector<std::vector<unsigned char>> bare_solutions;
+    BOOST_CHECK(Solver(bare_multisig, bare_solutions) == TxoutType::MULTISIG);
+    CCoinsViewCache bare_coins(&coins_dummy);
+    bare_coins.AddCoin(vanity.vin[0].prevout, Coin{CTxOut{1000, bare_multisig}, 1, false}, false);
+    t.vout = {CTxOut{1000, bare_multisig}};
+    const auto bare_no_view{DataOutputBytes(CTransaction{t})};
+    const auto bare_view{DataOutputBytes(CTransaction{t}, &bare_coins)};
+    BOOST_CHECK_EQUAL_COLLECTIONS(bare_view.begin(), bare_view.end(), bare_no_view.begin(), bare_no_view.end());
+    BOOST_CHECK(DatacarrierBytes(CTransaction{t}, bare_coins, bare_view) == DatacarrierBytes(CTransaction{t}, bare_coins, bare_no_view));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
