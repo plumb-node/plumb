@@ -35,7 +35,7 @@ Option `-rejectfakeoutputs`, default on, from [knots#389](https://github.com/bit
 
 **What it rejects.** Data hidden in the hashes and keys of outputs. A real hash or x-only key looks random, so one byte value eight times in a program, a run of six identical bytes, or a taproot key that is not on the curve marks it as data, along with its same-type, same-value siblings. Three or more P2WSH outputs sharing one value of 546 sat or less also count: file encoders pay every chunk the same dust amount.
 
-**What it leaves alone.** Payments to every address type, batched payments and pool payouts. The all-zero burn hash used by Stacks block commits is exempt.
+**What it leaves alone.** Payments to every address type, batched payments and pool payouts. The all-zero burn hash used by Stacks block commits is exempt, and so is an output that pays the script of a coin the transaction spends, such as change back to a vanity address.
 
 **Example.** `f93ee9d2a8d6fc0dce7889732d8e288ca64dacfe4c94c6cd76eb85037daea09c` at block 965224: an ACME file, a run of P2WSH outputs at the 330 sat dust floor whose programs hold a compressed HTML file.
 
