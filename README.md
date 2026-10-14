@@ -67,6 +67,12 @@ on, for example `v29.4.2.knots20260508.plumb6`. Each release page carries
 the source and, from plumb5 on, a pre-built `bitcoind` and `bitcoin-cli`
 for x86_64 Linux; from plumb6 on, for 64-bit ARM (aarch64) Linux too.
 
+### On Umbrel
+
+Plumb is an app in Leo Haf's Misc community app store for Umbrel. The
+install steps, how to check that it runs Plumb, and what to do when the
+install fails are at [plumbnode.org/umbrel](https://plumbnode.org/umbrel/).
+
 ### Pre-built, x86_64 or aarch64 Linux
 
 The tarballs run on any x86_64 or aarch64 Linux with glibc 2.31 or newer:
