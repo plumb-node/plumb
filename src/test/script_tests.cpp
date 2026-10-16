@@ -1625,13 +1625,13 @@ BOOST_AUTO_TEST_CASE(script_HasValidOps)
 }
 
 static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool dead_branches = true, const bool bare_envelopes = true, const bool fake_multisig = true) {
-    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches, bare_envelopes, fake_multisig);
+    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches, /*verified_keys=*/nullptr, bare_envelopes, fake_multisig);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
 static std::string DatacarrierBytesStr(const CScript& script, const CScriptWitness& witness)
 {
-    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*bare_envelopes=*/true, /*fake_multisig=*/true);
+    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
