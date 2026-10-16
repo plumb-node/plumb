@@ -732,6 +732,9 @@ private:
         /** The keys a signature verified against, one set per input, as seen by PolicyScriptChecks, which
          * always runs the scripts for them. An input that verified no key has an empty set. */
         std::vector<VerifiedKeys> m_verified_keys;
+        /** The data carried in output hashes and keys, as PreChecks counted it (knots#389), for the recount
+         * after PolicyScriptChecks. One entry per output. */
+        std::vector<size_t> m_data_outputs;
     };
 
     static inline bool MaybeReject_(TxValidationResult reason, const std::string& reason_str, const std::string& debug_msg, const ignore_rejects_type& ignore_rejects, TxValidationState& state) {
@@ -1066,8 +1069,10 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         return state.Invalid(TxValidationResult::TX_INPUTS_NOT_STANDARD, reason);
     }
 
-    // Outputs whose hash or key is data, for the datacarrier checks and the extra weight
-    std::vector<size_t> data_outputs(tx.vout.size(), 0);
+    // Outputs whose hash or key is data, for the datacarrier checks and the extra weight, kept in the
+    // workspace for the recount after the scripts have run
+    std::vector<size_t>& data_outputs{ws.m_data_outputs};
+    data_outputs.assign(tx.vout.size(), 0);
     if (m_pool.m_opts.reject_fake_outputs && (m_pool.m_opts.datacarrier_fullcount || !m_pool.m_opts.accept_non_std_datacarrier || ::g_weight_per_data_byte > WITNESS_SCALE_FACTOR)) {
         data_outputs = DataOutputBytes(tx, &m_view);
     }
@@ -1568,6 +1573,22 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
                     state.GetRejectReason(), state.GetDebugMessage());
         }
         return false; // state filled in by CheckInputScripts
+    }
+
+    // PreChecks counted the unproven pubkeys of each input from the script alone, before any script ran,
+    // and a signature-check opcode in code that never runs, or that runs and fails, fools that count.
+    // Now that the scripts have run, count again from the keys a signature really verified against.
+    // The recount can only add to what PreChecks charged. datacarriercost pricing is not redone.
+    // Recording keeps CheckInputScripts out of the script execution cache, so every input ran and has
+    // its set, and an input that verified no key is recounted with an empty one. Only a result without
+    // one set per input would be no observation, and the static count would stand.
+    // The outputs count as PreChecks counted them, so the data in output hashes and keys still adds up.
+    if (m_pool.m_opts.datacarrier_fullcount && !args.m_ignore_rejects.count("txn-datacarrier-exceeded") &&
+        ws.m_verified_keys.size() == tx.vin.size() && ws.m_data_outputs.size() == tx.vout.size()) {
+        const auto dcb = DatacarrierBytes(tx, m_view, ws.m_data_outputs, &ws.m_verified_keys);
+        if (dcb.first + dcb.second > m_pool.m_opts.max_datacarrier_bytes.value_or(0)) {
+            return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "txn-datacarrier-exceeded");
+        }
     }
 
     return true;

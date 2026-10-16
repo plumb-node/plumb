@@ -278,7 +278,11 @@ static constexpr unsigned int DATA_OUTPUT_CURVE_CHECKS{64};
  */
 std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCache* view = nullptr);
 
-std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs);
+/**
+ * @param[in] verified_keys  One set per input of the keys a signature verified against, from the policy
+ *                           script check, or nullptr when none was observed. See CScript::DatacarrierBytes.
+ */
+std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs, const std::vector<VerifiedKeys>* verified_keys = nullptr);
 
 int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& view, const unsigned int weight_per_data_byte, const std::vector<size_t>& data_outputs);
 

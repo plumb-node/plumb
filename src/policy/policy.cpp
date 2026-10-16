@@ -779,21 +779,30 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCach
     return ret;
 }
 
-std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs)
+std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs, const std::vector<VerifiedKeys>* verified_keys)
 {
     std::pair<size_t, size_t> ret{0, 0};
+    // A set per input or none at all. A partial one is not an observation.
+    if (verified_keys && verified_keys->size() != tx.vin.size()) verified_keys = nullptr;
 
-    for (const CTxIn& txin : tx.vin) {
+    for (size_t i{0}; i < tx.vin.size(); ++i) {
+        const CTxIn& txin = tx.vin[i];
         const CTxOut &utxo = view.AccessCoin(txin.prevout).out;
         auto[script, consensus_weight_per_byte] = GetScriptForTransactionInput(utxo.scriptPubKey, txin);
-        const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+        // Recount from the verified keys only for an input whose counted script came from the witness:
+        // native P2WSH, a tapscript leaf, and P2SH-wrapped P2WSH, which GetScriptForTransactionInput
+        // returns with a per-byte weight of 1. The witness-based bypass lives there. A script taken from
+        // the scriptSig (legacy P2SH, bare multisig, P2PKH) comes back at WITNESS_SCALE_FACTOR, and keeps
+        // the static count unchanged, byte for byte.
+        const VerifiedKeys* input_keys{(verified_keys && consensus_weight_per_byte == 1) ? &(*verified_keys)[i] : nullptr};
+        const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), input_keys, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
         ret.first += dcb.first;
         ret.second += dcb.second;
     }
     if (::g_reject_bpub) ret.second += BPUBBytes(tx);
     for (size_t i{tx.vout.size()}; i; ) {
         const CTxOut& txout = tx.vout[--i];
-        const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i, nullptr, false, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+        const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i, nullptr, false, nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
         ret.first += dcb.first;
         // An OLGA header counts its whole payload, so keep the larger figure
         ret.second += std::max(dcb.second, data_outputs[i]);
@@ -812,7 +821,7 @@ int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& vi
             const CTxOut &utxo = view.AccessCoin(txin.prevout).out;
             auto[script, consensus_weight_per_byte] = GetScriptForTransactionInput(utxo.scriptPubKey, txin);
             if (weight_per_data_byte > consensus_weight_per_byte) {
-                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
                 mod_weight += int64_t(dcb.first + dcb.second) * (weight_per_data_byte - consensus_weight_per_byte);
             }
         }
@@ -820,7 +829,7 @@ int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& vi
         if (weight_per_data_byte > WITNESS_SCALE_FACTOR) {
             for (size_t i{tx.vout.size()}; i; ) {
                 const CTxOut& txout = tx.vout[--i];
-                const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i, nullptr, false, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+                const auto dcb = txout.scriptPubKey.DatacarrierBytes(tx.vout.size() - i, nullptr, false, nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
                 mod_weight += int64_t(std::max(dcb.first + dcb.second, data_outputs[i])) * (weight_per_data_byte - WITNESS_SCALE_FACTOR);
             }
         }
