@@ -136,11 +136,11 @@ request here like any other.
 Most filters count bytes they recognize as data. Knots then applies its data
 carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
 any data outside an `OP_RETURN` output means the node does not relay or mine
-the transaction, and `-datacarriersize` (83 bytes by default) caps the total.
-`-rejecttokenmessages` instead refuses a token message it recognizes, the way
-Knots' `-rejecttokens` refuses Runes and Counterparty. The filters never touch
-block validity. A block that contains one of these transactions is still
-valid and your node still accepts it.
+the transaction, and `-datacarriersize` (42 bytes by default, 83 in Knots)
+caps the total. `-rejecttokenmessages` instead refuses a token message it
+recognizes, the way Knots' `-rejecttokens` refuses Runes and Counterparty. The
+filters never touch block validity. A block that contains one of these
+transactions is still valid and your node still accepts it.
 
 Every filter is on by default. To turn one off, add its line with `=0` to
 `bitcoin.conf` (or pass it on the command line) and restart the node.
@@ -158,13 +158,16 @@ Lower data limits
 -----------------
 
 `-datacarriersize` and `-datacarrier` are Knots options and work the same way
-on Plumb. Lowering them refuses more transactions, most of them carrying a
-cross-chain swap or bridge memo. Measured over every non-coinbase transaction
-from block 961640 to 975264 (3,278,236), on top of Plumb's defaults:
+on Plumb, except that Plumb starts `-datacarriersize` at 42, as Knots did
+before it moved to 83 (Plumb reverts Knots commit 6323b42e07). `-corepolicy`
+sets it back to 83. Each step down refuses more transactions, most of them
+carrying a cross-chain swap or bridge memo. Measured over every non-coinbase
+transaction from block 961640 to 975264 (3,278,236), with Plumb's filters on,
+against Knots' 83:
 
 | Setting | Also refuses | Data in them | With a swap or bridge memo |
 |---------|-------------:|-------------:|---------------------------:|
-| `-datacarriersize=42` | 73,585 | 4.89 MB | 68,339 |
+| `-datacarriersize=42`, the default | 73,585 | 4.89 MB | 68,339 |
 | `-datacarriersize=8` | 92,436 | 5.21 MB | 76,840 |
 | `-datacarrier=0` | 92,913 | 5.21 MB | 76,844 |
 
