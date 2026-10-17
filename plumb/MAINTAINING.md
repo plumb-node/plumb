@@ -10,7 +10,8 @@ Branch layout
 2. one merge commit per filter, `Merge knots#N: <title>`, merging the exact
    pull request commit listed in `plumb/filters.json`,
 3. the Plumb commits on top: version suffix, user agent, startup banner,
-   README, assets.
+   README, assets, and the revert of Knots commit 6323b42e07 that starts
+   `-datacarriersize` at 42 instead of 83.
 
 Releases are signed tags on that branch:
 `v<knots version>.plumb<N>`, with `N` counting up from 1 on each Knots base.
@@ -67,7 +68,11 @@ Moving to a new Knots release
    cleanly (review the rebase like any other change), then re-merge them in
    the same order.
 3. Cherry-pick the Plumb commits. Reset the suffix to
-   `.knots<date>.plumb1` to match the new base.
+   `.knots<date>.plumb1` to match the new base. Check that the new Knots
+   release still defaults `-datacarriersize` to 83 through
+   `MAX_OP_RETURN_RELAY` in `src/policy/policy.h`, and that `-corepolicy` in
+   `src/init.cpp` does not set it; if Knots moved either, redo the 42 change
+   by hand instead of cherry-picking the revert.
 4. Build and run the full suites as above.
 5. Replace `29.x-plumb` with the new branch (`git push --force-with-lease`).
    The old line stays reachable through its tags.
