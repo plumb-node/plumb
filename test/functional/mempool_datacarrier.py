@@ -32,16 +32,20 @@ from test_framework.wallet import MiniWallet
 
 from random import randbytes
 
+# Plumb's default -datacarriersize: 40 bytes of data, +1 for OP_RETURN, +1 for the pushdata opcode.
+# The framework starts every node with -corepolicy, which sets it to MAX_OP_RETURN_RELAY (83).
+PLUMB_DATACARRIER_SIZE = 42
 
 class DataCarrierTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.num_nodes = 5
+        self.num_nodes = 6
         self.extra_args = [
             ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes", "-rejectfakemultisig"],
             ["-datacarrier=0"],
             ["-datacarrier=1", f"-datacarriersize={MAX_OP_RETURN_RELAY - 1}"],
             ["-datacarrier=1", "-datacarriersize=2", "-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectfakemultisig"],
             ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectbareenvelopes=0", "-rejectfakemultisig=0"],
+            ["-corepolicy=0"],
         ]
 
     def test_null_data_transaction(self, node: TestNode, data, success: bool) -> None:
@@ -183,6 +187,17 @@ class DataCarrierTest(BitcoinTestFramework):
             assert_raises_rpc_error(-26, "txn-datacarrier-exceeded",
                                     self.wallet.sendrawtransaction, from_node=node, tx_hex=tx_hex)
 
+    def test_default_size(self, node: TestNode, data: bytes, success: bool) -> None:
+        tx = self.wallet.create_self_transfer(fee_rate=0, confirmed_only=True)["tx"]
+        tx.vout.append(CTxOut(nValue=0, scriptPubKey=CScript([OP_RETURN, data])))
+        tx.vout[0].nValue -= 10 * tx.get_vsize()  # enough whatever -datacarriercost adds
+        tx_hex = tx.serialize().hex()
+        if success:
+            self.wallet.sendrawtransaction(from_node=node, tx_hex=tx_hex)
+            assert tx.rehash() in node.getrawmempool(), f'{tx_hex} not in mempool'
+        else:
+            assert_raises_rpc_error(-26, "scriptpubkey", self.wallet.sendrawtransaction, from_node=node, tx_hex=tx_hex)
+
     def run_test(self):
         self.wallet = MiniWallet(self.nodes[0])
 
@@ -271,6 +286,14 @@ class DataCarrierTest(BitcoinTestFramework):
 
         self.log.info("Testing that -rejectfakemultisig=0 lets the padded multisig through.")
         self.test_unproven_pubkeys_transaction(node=self.nodes[4], m=1, n=15, success=True)
+
+        self.log.info("Testing Plumb's default -datacarriersize of 42 on a node without -corepolicy.")
+        self.test_default_size(self.nodes[5], randbytes(PLUMB_DATACARRIER_SIZE - 2), success=True)
+        self.test_default_size(self.nodes[5], randbytes(PLUMB_DATACARRIER_SIZE - 1), success=False)
+
+        self.log.info("Testing that -corepolicy sets -datacarriersize back to 83.")
+        self.test_default_size(self.nodes[0], randbytes(PLUMB_DATACARRIER_SIZE - 1), success=True)
+        self.test_default_size(self.nodes[0], randbytes(MAX_OP_RETURN_RELAY - 3), success=True)
 
 
 if __name__ == '__main__':
