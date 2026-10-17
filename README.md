@@ -5,7 +5,8 @@
 Plumb is Bitcoin Knots plus the spam-policy filters the Plumb maintainers
 have reviewed and ACKed, whether they were opened against Knots or here, and
 whether or not Knots merges them. Each release is one Knots release plus
-those merges and nothing else.
+those merges and one default of its own: `-datacarriersize` starts at 42
+bytes, where Knots has started at 83 since v29.2.knots20251110.
 
 It is a policy project, not a consensus project. The filters change what
 your node relays and what your node mines. They do not change which blocks
@@ -40,6 +41,11 @@ Plumb filter -rejecttokenmessages=1 (plumb#2)
 ```
 <!-- filters:end -->
 
+The 42-byte `-datacarriersize` is not a filter and has no switch of its own:
+set `datacarriersize=83` to match Knots, and `-corepolicy` sets 83 too.
+[plumb/FILTERS.md](plumb/FILTERS.md#lower-data-limits) says what 42 refuses
+that 83 lets through.
+
 The machine-readable list is [plumb/filters.json](plumb/filters.json), with
 the exact commit of each pull request that was merged.
 
@@ -52,12 +58,13 @@ on [cesspool.lol/check](https://cesspool.lol/check/#settings), which also
 has the settings for Umbrel and StartOS. Each writes its filter settings
 out, so a `corepolicy=1` set elsewhere can no longer reset them (it still
 changes settings they do not set, such as the minimum relay fee), and sets
-three values stricter than the defaults: `datacarriersize=42`,
-`datacarriercost=2` and `bytespersigopstrict=51`. The comment above each
-says what it does; [cesspool.lol](https://cesspool.lol/check/#fake-multisig)
-explains the third, which refuses most fake multisig. If your
-`bitcoin.conf` already sets one of these options, change or remove that
-line rather than adding a second one.
+three values stricter than Knots' defaults: `datacarriersize=42` (Plumb's
+own default), `datacarriercost=2` and `bytespersigopstrict=51`. The comment
+above each says what it does;
+[cesspool.lol](https://cesspool.lol/check/#fake-multisig) explains the
+third, which refuses most fake multisig. If your `bitcoin.conf` already sets
+one of these options, change or remove that line rather than adding a second
+one.
 
 Getting it
 ----------
