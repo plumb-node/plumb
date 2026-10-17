@@ -918,6 +918,11 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     g_mempool_opts.reject_tokens = true;
     t.vin[0].prevout.hash = dummy_txid;
 
+    // The token messages below run to 76 bytes of data, so they are checked at Knots' 83-byte
+    // -datacarriersize; at Plumb's 42 the longer ones are refused for their size before the
+    // filter reads them.
+    g_mempool_opts.max_datacarrier_bytes = 83;
+
     // Test rejecttokens catching a JSON token mint, as written on mainnet in transaction
     // 715863e04b618a6818eaec826b8ea900a75a43a5c22859c6b408c68246c4ebcb
     const auto json_mint{"7b2270223a2269636f2d3230222c226f70223a226d696e74222c227469636b223a224c454146227d"_hex};
@@ -1018,6 +1023,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
         BOOST_CHECK(reason.empty());
         t.vout.erase(t.vout.begin());
     }
+    g_mempool_opts.max_datacarrier_bytes = MAX_OP_RETURN_RELAY;
 
     // Test rejecttokens applying to OLGA
     const auto olga_header = CScript() << OP_0 << "003e7374616d703a000000000000000000000000000000000000000000000000"_hex;
