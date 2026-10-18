@@ -37,6 +37,7 @@ Four configuration actions cover the full set of editable `bitcoin.conf` values,
 
 - **Mempool Settings** — Knots' policy controls (OP_RETURN limits, parasite/token filters, replacement rules, ancestor/descendant limits, dust relay fee, etc.) plus standard mempool sizing.
 - Plumb's own filters are not on these settings screens. They are on by default, and the node lists them at startup in its log (`Plumb filter ...` lines).
+- **Max OP_RETURN Size** on Mempool Settings starts empty, which means Plumb's default of 42 bytes; Bitcoin Knots starts at 83. Leave it empty to keep 42.
 - **Peer Settings** — `onlynet`, BIP324 v2 transport, I2P SAM proxy on/off, manual peers, max connections.
 - **RPC Settings** — RPC threads, work queue, server timeout.
 - **Other Settings** — ZMQ, txindex, block templates, coinstats index, block filters (BIP158/157), pruning, dbcache, wallet master switches, NAT-PMP, max upload target, and more.

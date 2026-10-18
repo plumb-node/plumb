@@ -283,7 +283,7 @@ export const fullConfigSpec = sdk.InputSpec.of({
     max: 10_000,
     integer: true,
     units: i18n('bytes'),
-    footnote: `${i18n('Default')}: 83 bytes`,
+    footnote: `${i18n('Default')}: 42 bytes`,
   }),
   permitbaredatacarrier: Value.triState({
     name: i18n('Permit Bare Datacarrier'),
