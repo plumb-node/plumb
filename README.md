@@ -66,6 +66,16 @@ third, which refuses most fake multisig. If your `bitcoin.conf` already sets
 one of these options, change or remove that line rather than adding a second
 one.
 
+A node that a Lightning node sends transactions through takes
+[plumb/conf/plumb-lightning.conf](plumb/conf/plumb-lightning.conf) or
+[plumb/conf/knots-lightning.conf](plumb/conf/knots-lightning.conf) instead:
+the same files with the three settings a zero-fee commitment channel needs
+(`subdustfeepenalty=0`, `mempooltruc=enforce` and
+`permitephemeral=anchor,-send,dust`) and the dust fee settings written out.
+The comments above each say what the change lets through;
+[cesspool.lol/check/#lightning](https://cesspool.lol/check/#lightning) says
+the rest.
+
 Getting it
 ----------
 
