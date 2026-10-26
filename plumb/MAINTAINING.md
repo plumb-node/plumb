@@ -6,9 +6,11 @@ Branch layout
 
 `29.x-plumb` is the release branch. Its history is always:
 
-1. a Bitcoin Knots release tag (today `v29.4.2.knots20260508`),
+1. a Bitcoin Knots release tag (today `v29.4.3.knots20260508`),
 2. one merge commit per filter, `Merge knots#N: <title>`, merging the exact
-   pull request commit listed in `plumb/filters.json`,
+   pull request commit listed in `plumb/filters.json`; where Knots has
+   merged the rule and Plumb keeps a switch for it, the branch holds only
+   the Plumb commit that adds the switch,
 3. the Plumb commits on top: version suffix, user agent, startup banner,
    README, assets, and the revert of Knots commit 6323b42e07 that starts
    `-datacarriersize` at 42 instead of 83.
