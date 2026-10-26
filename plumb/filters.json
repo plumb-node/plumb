@@ -18,24 +18,6 @@
     }
   },
   {
-    "option": "-rejectdeadbranches",
-    "name": "Dead conditional branches",
-    "source": "knots#400",
-    "url": "https://github.com/bitcoinknots/bitcoin/pull/400",
-    "upstream": "open",
-    "branch": "filter/rejectdeadbranches",
-    "commit": "68e6db87e91a321741033a23590beb220ac20f5f",
-    "summary": "Counts data in a conditional branch that constants make unreachable",
-    "since": "v29.4.2.knots20260508.plumb1",
-    "catches": "Data placed in a branch of a script that can never run because a constant decides the condition, such as `OP_1 OP_NOTIF <data> OP_ENDIF` or the dead side of an `OP_ELSE`. Knots already counts the `OP_FALSE OP_IF` envelope; this catches the other constant-decided forms.",
-    "passes": "Branches decided by a signature or a witness value, which is how real spending conditions branch: Lightning, timelocks, multisig recovery paths. Those are never counted.",
-    "example": {
-      "txid": "23e8f9466cd895c21a041155dba377f1a77a46cec13dcb14c430fa9c75f8786a",
-      "height": 969961,
-      "note": "a 37 KB JPEG XL image in an `OP_1 OP_NOTIF` branch"
-    }
-  },
-  {
     "option": "-rejectbareenvelopes",
     "name": "Bare data envelopes",
     "source": "knots#319",

@@ -48,26 +48,6 @@ rejectfakeoutputs=0
 or `-rejectfakeoutputs=0` on the command line. The code is on the [`filter/rejectfakeoutputs`](https://github.com/plumb-node/plumb/tree/filter/rejectfakeoutputs) branch and in [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389).
 
 
-Dead conditional branches
--------------------------
-
-Option `-rejectdeadbranches`, default on, from [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400) (upstream: open), in Plumb since `v29.4.2.knots20260508.plumb1`.
-
-**What it rejects.** Data placed in a branch of a script that can never run because a constant decides the condition, such as `OP_1 OP_NOTIF <data> OP_ENDIF` or the dead side of an `OP_ELSE`. Knots already counts the `OP_FALSE OP_IF` envelope; this catches the other constant-decided forms.
-
-**What it leaves alone.** Branches decided by a signature or a witness value, which is how real spending conditions branch: Lightning, timelocks, multisig recovery paths. Those are never counted.
-
-**Example.** `23e8f9466cd895c21a041155dba377f1a77a46cec13dcb14c430fa9c75f8786a` at block 969961: a 37 KB JPEG XL image in an `OP_1 OP_NOTIF` branch.
-
-**Turn it off.** In `bitcoin.conf`:
-
-```
-rejectdeadbranches=0
-```
-
-or `-rejectdeadbranches=0` on the command line. The code is on the [`filter/rejectdeadbranches`](https://github.com/plumb-node/plumb/tree/filter/rejectdeadbranches) branch and in [knots#400](https://github.com/bitcoinknots/bitcoin/pull/400).
-
-
 Bare data envelopes
 -------------------
 
