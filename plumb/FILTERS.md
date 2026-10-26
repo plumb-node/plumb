@@ -51,7 +51,7 @@ or `-rejectfakeoutputs=0` on the command line. The code is on the [`filter/rejec
 Bare data envelopes
 -------------------
 
-Option `-rejectbareenvelopes`, default on, from [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319) (upstream: open), in Plumb since `v29.4.2.knots20260508.plumb2`.
+Option `-rejectbareenvelopes`, default on, from [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319) (upstream: merged in Knots 29.4.3; the switch is Plumb's), in Plumb since `v29.4.2.knots20260508.plumb2`.
 
 **What it rejects.** A run of data pushes dropped again with `OP_DROP` or `OP_2DROP`, the envelope shape inscriptions use when `OP_IF` is not available. The whole run counts as data, not only the last push.
 
@@ -71,7 +71,7 @@ or `-rejectbareenvelopes=0` on the command line. The code is on the [`filter/rej
 Fake multisig keys
 ------------------
 
-Option `-rejectfakemultisig`, default on, from [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422) (upstream: open), in Plumb since `v29.4.2.knots20260508.plumb3`.
+Option `-rejectfakemultisig`, default on, from [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422) (upstream: merged in Knots 29.4.3; the switch is Plumb's), in Plumb since `v29.4.2.knots20260508.plumb3`.
 
 **What it rejects.** File chunks dressed as public keys: a 1-of-15 multisig where one key signs and the other 14 each carry 31 bytes of a file. Keys that no signature in the spend can prove, beyond ten per script, count as data. Covers P2WSH, P2SH and tapscript `multi_a`.
 
