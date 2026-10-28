@@ -419,6 +419,7 @@ BASE_SCRIPTS = [
     'mempool_dust.py',
     'mempool_subdust_fee_penalty.py',
     'mempool_subdust_persist.py',
+    'mempool_token_messages.py',
     'mempool_tokens.py',
     'mempool_sigoplimit.py',
     'rpc_deriveaddresses.py',

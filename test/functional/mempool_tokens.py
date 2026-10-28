@@ -42,9 +42,10 @@ class RejectTokensTest(BitcoinTestFramework):
         self.num_nodes = 4
         # Nodes 0 and 1 set the option explicitly. The framework starts every node with -corepolicy,
         # which turns it off, so node 2 takes the Knots default with -corepolicy=0 and node 3 the
-        # Core policy reset.
+        # Core policy reset. -corepolicy also turns off Plumb's -rejecttokenmessages, so node 0 sets
+        # that too.
         self.extra_args = [
-            ["-rejecttokens=1"],
+            ["-rejecttokens=1", "-rejecttokenmessages=1"],
             ["-rejecttokens=0"],
             ["-corepolicy=0"],
             ["-corepolicy=1"],
