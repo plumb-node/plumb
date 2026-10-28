@@ -74,6 +74,8 @@ Fake multisig keys
 
 Option `-rejectfakemultisig`, default on, from [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422) (upstream: merged in Knots 29.4.3; the switch is Plumb's), in Plumb since `v29.4.2.knots20260508.plumb3`.
 
+**Changed by [knots#470](https://github.com/bitcoinknots/bitcoin/pull/470)** (upstream: open), since `v29.4.3.knots20260508.plumb9`. A key in a witness script (P2WSH, P2SH-wrapped P2WSH or a tapscript leaf) counts as proven only if a signature in the spend verified against it, so a signature check that never runs or fails harmlessly, such as one behind `OP_DEPTH OP_0NOTEQUAL OP_NOTIF` or one given an empty signature, proves nothing. Plumb carries the pull request rebased onto Knots 29.4.3 and onto the switch, and `-rejectfakemultisig=0` turns it off with the rest of the rule.
+
 **What it rejects.** File chunks dressed as public keys: a 1-of-15 multisig where one key signs and the other 14 each carry 31 bytes of a file. Keys that no signature in the spend can prove, beyond ten per script, count as data. Covers P2WSH, P2SH and tapscript `multi_a`.
 
 **What it leaves alone.** Real multisig and vaults, which since the fork leave at most ten keys unsigned in a script (a 2-of-3 vault with timelocked recovery branches; a plain 2-of-3 leaves one), including federations spending 11-of-15.
@@ -88,7 +90,7 @@ Option `-rejectfakemultisig`, default on, from [knots#422](https://github.com/bi
 rejectfakemultisig=0
 ```
 
-or `-rejectfakemultisig=0` on the command line. The code is on the [`filter/rejectfakemultisig`](https://github.com/plumb-node/plumb/tree/filter/rejectfakemultisig) branch and in [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422).
+or `-rejectfakemultisig=0` on the command line. The code is on the [`filter/rejectfakemultisig`](https://github.com/plumb-node/plumb/tree/filter/rejectfakemultisig) branch and in [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422) and [knots#470](https://github.com/bitcoinknots/bitcoin/pull/470).
 
 
 Token messages
