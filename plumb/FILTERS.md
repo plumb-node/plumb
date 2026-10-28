@@ -14,9 +14,10 @@ carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
 any data outside an `OP_RETURN` output means the node does not relay or mine
 the transaction, and `-datacarriersize` (42 bytes by default, 83 in Knots)
 caps the total. `-rejecttokenmessages` instead refuses a token message it
-recognizes, the way Knots' `-rejecttokens` refuses Runes and Counterparty. The
-filters never touch block validity. A block that contains one of these
-transactions is still valid and your node still accepts it.
+recognizes, as part of Knots' `-rejecttokens`, which refuses Runes and
+Counterparty the same way. The filters never touch block validity. A block
+that contains one of these transactions is still valid and your node still
+accepts it.
 
 Every filter is on by default. To turn one off, add its line with `=0` to
 `bitcoin.conf` (or pass it on the command line) and restart the node.
@@ -93,9 +94,9 @@ or `-rejectfakemultisig=0` on the command line. The code is on the [`filter/reje
 Token messages
 --------------
 
-Option `-rejecttokenmessages`, default on, Plumb's own filter from [plumb#2](https://github.com/plumb-node/plumb/pull/2); there is no Knots pull request. [knots#64](https://github.com/bitcoinknots/bitcoin/issues/64) asked for filters like it. In Plumb since `v29.4.2.knots20260508.plumb4`.
+Option `-rejecttokenmessages`, default on, from [knots#489](https://github.com/bitcoinknots/bitcoin/pull/489) (upstream: open, as part of `-rejecttokens`; the switch is Plumb's), in Plumb since `v29.4.2.knots20260508.plumb4`. It began as Plumb's own filter, [plumb#2](https://github.com/plumb-node/plumb/pull/2). [knots#64](https://github.com/bitcoinknots/bitcoin/issues/64) asked for filters like it.
 
-**What it rejects.** Token operations written into an `OP_RETURN` that `-rejecttokens` does not match. A JSON object whose `"p"` field names the protocol is the BRC-20 format, which ico-20, crc-20 and others copy: `{"p":"ico-20","op":"mint","tick":"LEAF"}`. Omni Layer messages begin with `omni`. Most JSON mints on this chain are 41 or 42 bytes, under even a 42-byte `-datacarriersize`.
+**What it rejects.** Token operations written into an `OP_RETURN` that the Runes, Counterparty and OLGA checks of `-rejecttokens` do not match. A JSON object whose `"p"` field names the protocol is the BRC-20 format, which ico-20, crc-20 and others copy: `{"p":"ico-20","op":"mint","tick":"LEAF"}`. Omni Layer messages begin with `omni`. Most JSON mints on this chain are 41 or 42 bytes, under even a 42-byte `-datacarriersize`. The check runs under `-rejecttokens`, so `-rejecttokens=0` turns it off too.
 
 **What it leaves alone.** Every other `OP_RETURN`: swap and bridge memos, Stacks block commits, Babylon staking, and random data that happens to start with `{`. The payload has to start as a JSON object with a top-level `"p"` member whose value is a string.
 
@@ -107,7 +108,7 @@ Option `-rejecttokenmessages`, default on, Plumb's own filter from [plumb#2](htt
 rejecttokenmessages=0
 ```
 
-or `-rejecttokenmessages=0` on the command line. The code is on the [`filter/rejecttokenmessages`](https://github.com/plumb-node/plumb/tree/filter/rejecttokenmessages) branch and in [plumb#2](https://github.com/plumb-node/plumb/pull/2).
+or `-rejecttokenmessages=0` on the command line. The code is on the [`filter/rejecttokenmessages`](https://github.com/plumb-node/plumb/tree/filter/rejecttokenmessages) branch and in [knots#489](https://github.com/bitcoinknots/bitcoin/pull/489).
 
 
 Lower data limits
