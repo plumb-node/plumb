@@ -8,6 +8,7 @@
 
 extern bool g_reject_bare_envelopes;
 extern bool g_reject_fake_multisig;
+extern bool g_permit_ln_revoke_leaf;
 extern unsigned int g_script_size_policy_limit;
 extern unsigned int nBytesPerSigOp;
 extern unsigned int nBytesPerSigOpStrict;

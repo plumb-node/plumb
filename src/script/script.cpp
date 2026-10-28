@@ -1147,7 +1147,7 @@ bool IsLnTaprootRevokeLeaf(const CScript& script, const CScriptWitness& witness)
     return std::equal(script.begin(), script.end(), leaf.begin(), leaf.end());
 }
 
-std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness, const bool dead_branches, const VerifiedKeys* verified_keys, const bool bare_envelopes, const bool fake_multisig) const
+std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outputs, const CScriptWitness* witness, const bool dead_branches, const VerifiedKeys* verified_keys, const bool bare_envelopes, const bool fake_multisig, const bool ln_revoke_leaf) const
 {
     if (size_t olga_bytes = IsOLGA(remaining_outputs); olga_bytes) {
         return {0, olga_bytes};
@@ -1162,8 +1162,9 @@ std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outpu
     // Where a constant guard makes part of a conditional unreachable
     const DeadParts dead{dead_branches ? FindDeadParts(*this) : DeadParts{}};
     // The one dropped push that counts toward the budget instead of as non-standard data: the key
-    // LND reveals in its revocation leaf
-    const bool ln_revoke_leaf{witness && IsLnTaprootRevokeLeaf(*this, *witness)};
+    // LND reveals in its revocation leaf. Plumb's -permitlnrevokeleaf=0 passes false and the key is
+    // non-standard data again, as in 29.4.3.
+    const bool budget_leaf_key{ln_revoke_leaf && witness && IsLnTaprootRevokeLeaf(*this, *witness)};
     size_t budgeted{0};
     // A span that began at a conditional counts its guard push too; one that began at OP_ELSE does not
     size_t span_guard{1};
@@ -1233,7 +1234,7 @@ std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outpu
         } else if (is_push(opcode)) {
             if (!bare_envelopes || !is_push(last_opcode)) data_began = opcode_it;  // only reset at the start of a push run
         } else if ((opcode == OP_DROP || (bare_envelopes && opcode == OP_2DROP)) && is_push(last_opcode)) {
-            if (ln_revoke_leaf) {
+            if (budget_leaf_key) {
                 budgeted += it - data_began;
             } else {
                 counted += it - data_began;
