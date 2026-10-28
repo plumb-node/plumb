@@ -197,6 +197,9 @@ def filters_md(filters):
             related = f" [{f['related']}]({f['related_url']}) asked for filters like it." if f.get("related") else ""
             out.append(f"Option `{f['option']}`, default on, from [{f['source']}]({f['url']}) "
                        f"(upstream: {f['upstream']}), in Plumb since `{f['since']}`.{previously}{related}\n")
+        for a in f.get("amended_by", []):
+            out.append(f"**Changed by [{a['source']}]({a['url']})** (upstream: {a['upstream']}), "
+                       f"since `{a['since']}`. {a['note']}\n")
         out.append(f"**What it rejects.** {f['catches']}\n")
         out.append(f"**What it leaves alone.** {f['passes']}\n")
         if f.get("cost"):
@@ -207,9 +210,13 @@ def filters_md(filters):
         out.append(f"**Turn it off.** In `bitcoin.conf`:\n\n```\n{f['option'][1:]}=0\n```\n\n"
                    f"or `{f['option']}=0` on the command line. The code is on the "
                    f"[`{f['branch']}`](https://github.com/plumb-node/plumb/tree/{f['branch']}) branch "
-                   f"and in [{f['source']}]({f['url']}).\n")
+                   f"and in [{f['source']}]({f['url']}){amended(f)}.\n")
     out.append(LIMITS)
     return "\n".join(out)
+
+
+def amended(f):
+    return "".join(f" and [{a['source']}]({a['url']})" for a in f.get("amended_by", []))
 
 
 def own(f):
@@ -224,7 +231,7 @@ def readme_list(filters):
     lines = []
     for f in filters:
         lines.append(f"- **[{f['name']}](plumb/FILTERS.md#{anchor(f['name'])})**, `{f['option']}`, "
-                     f"{own(f)}from [{f['source']}]({f['url']}){no_pr(f)}: {f['summary'][0].lower()}{f['summary'][1:]}.")
+                     f"{own(f)}from [{f['source']}]({f['url']}){amended(f)}{no_pr(f)}: {f['summary'][0].lower()}{f['summary'][1:]}.")
     lines.append("\nEvery filter is on by default and is its own option. [plumb/FILTERS.md](plumb/FILTERS.md)\n"
                  "says what each one rejects and leaves alone, with an example transaction and\n"
                  "the line that turns it off. `-corepolicy` turns all of them off along with the\n"

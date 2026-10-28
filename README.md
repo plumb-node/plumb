@@ -23,7 +23,7 @@ What Plumb ships
 <!-- filters:start -->
 - **[Fake output hashes and keys](plumb/FILTERS.md#fake-output-hashes-and-keys)**, `-rejectfakeoutputs`, from [knots#389](https://github.com/bitcoinknots/bitcoin/pull/389): counts outputs whose hash or key is data as data carrier bytes.
 - **[Bare data envelopes](plumb/FILTERS.md#bare-data-envelopes)**, `-rejectbareenvelopes`, from [knots#319](https://github.com/bitcoinknots/bitcoin/pull/319): counts a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes.
-- **[Fake multisig keys](plumb/FILTERS.md#fake-multisig-keys)**, `-rejectfakemultisig`, from [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422): counts the keys of a multisig that no signature in the spend proves, beyond 10 per script, as data carrier bytes.
+- **[Fake multisig keys](plumb/FILTERS.md#fake-multisig-keys)**, `-rejectfakemultisig`, from [knots#422](https://github.com/bitcoinknots/bitcoin/pull/422) and [knots#470](https://github.com/bitcoinknots/bitcoin/pull/470): counts the keys of a multisig that no signature in the spend proves, beyond 10 per script, as data carrier bytes.
 - **[Token messages](plumb/FILTERS.md#token-messages)**, `-rejecttokenmessages`, from [knots#489](https://github.com/bitcoinknots/bitcoin/pull/489): refuses an OP_RETURN that holds a JSON token message or an Omni Layer message.
 
 Every filter is on by default and is its own option. [plumb/FILTERS.md](plumb/FILTERS.md)
