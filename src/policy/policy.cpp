@@ -462,8 +462,9 @@ bool IsStandardTx(const CTransaction& tx, const kernel::MemPoolOptions& opts, st
     // only with -rejecttokens on) nothing is allocated that does not come from the script. The JSON
     // scanner reads the pushes joined only: the first push is a prefix of them and the scanner
     // returns true before it needs a byte past the "p" value, so a match on the first push alone
-    // is a match on the joined pushes.
-    if (opts.reject_tokens) {
+    // is a match on the joined pushes. -rejecttokenmessages=0 turns off this part of -rejecttokens
+    // only.
+    if (opts.reject_tokens && opts.reject_token_messages) {
         for (const size_t i : null_data_outs) {
             if (const auto pushes{GetNullDataPushes(tx.vout[i].scriptPubKey)}) {
                 if (IsJsonTokenMessage(pushes->joined)) {
