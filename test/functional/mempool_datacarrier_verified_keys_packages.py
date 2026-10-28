@@ -62,7 +62,8 @@ class VerifiedKeyPackageTest(VerifiedKeyCreditTest):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        defaults = NODE_ARGS + ["-acceptnonstdtxn=0"]
+        # Knots' 83 bytes, since Plumb starts -datacarriersize at 42
+        defaults = NODE_ARGS + ["-acceptnonstdtxn=0", "-datacarriersize=83"]
         self.extra_args = [defaults, defaults + ["-mempooltruc=enforce"]]
         # value of every output this test created, by (txid, n), for the signature hash. The base class
         # signs for a fixed amount, which does not hold once a parent pays a fee.
