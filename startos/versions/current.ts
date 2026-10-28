@@ -3,13 +3,9 @@ import { rm } from 'fs/promises'
 import { bitcoinConfFile } from '../fileModels/bitcoin.conf'
 
 export const current = VersionInfo.of({
-  version: '#plumb:29.4.3.8:0',
+  version: '#plumb:29.4.3.8:1',
   releaseNotes: {
-    en_US: `Plumb v29.4.3.knots20260508.plumb8, built from the signed source tag`,
-    es_ES: `Plumb v29.4.3.knots20260508.plumb8, compilado desde la etiqueta de código firmada`,
-    de_DE: `Plumb v29.4.3.knots20260508.plumb8, aus dem signierten Quell-Tag gebaut`,
-    pl_PL: `Plumb v29.4.3.knots20260508.plumb8, zbudowany z podpisanego tagu źródłowego`,
-    fr_FR: `Plumb v29.4.3.knots20260508.plumb8, compilé à partir du tag source signé`,
+    en_US: `Plumb v29.4.3.knots20260508.plumb8, built from the signed source tag, on the wrapper Retropex ships for Bitcoin Knots 29.4.3`,
   },
   migrations: {
     up: async ({ effects }) => {},
@@ -39,5 +35,7 @@ export const current = VersionInfo.of({
   },
 })
   // Dependents written for the #knots flavor (BLAKE2b Fulcrum, Datum) accept
-  // this release as the Knots it is built on.
+  // this release as the Knots it is built on: Retropex's package for Knots
+  // 29.4.3 is 29.4.3:1, and 29.4.2:3 stays for a dependent still pinned to it.
+  .satisfies('#knots:29.4.3:1')
   .satisfies('#knots:29.4.2:3')
