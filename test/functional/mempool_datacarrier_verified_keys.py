@@ -108,13 +108,15 @@ def charge_for(unproven_keys):
 
 class VerifiedKeyCreditTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.num_nodes = 6
+        self.num_nodes = 7
         # The cached chain predates the fork, so every block here is mined under the fork's rules.
         self.setup_clean_chain = True
         # Counting is gated on -datacarrierfullcount (default on). Nodes 0 to 4 count and enforce
         # standardness; node 5 turns it off, so nothing is counted there.
         defaults = NODE_ARGS + ["-acceptnonstdtxn=0"]
         self.extra_args = [defaults] + [defaults + [f"-datacarriersize={n}"] for n in LIMITS[1:]] + [NODE_ARGS + ["-datacarrierfullcount=0"]]
+        # Node 6 runs Plumb's -rejectfakemultisig=0, which turns the rule and its recount off.
+        self.extra_args.append(defaults + ["-rejectfakemultisig=0"])
 
     # ---- building blocks ----
 
@@ -714,6 +716,12 @@ class VerifiedKeyCreditTest(BitcoinTestFramework):
         self.log.info("Without -datacarrierfullcount nothing is counted, so the recount never runs")
         for tx, name in [(poc, "PoC"), (b1, "B1"), (b2, "B2"), (v1, "V1"), (jason, "jasonsopko shape")]:
             self.assert_accepted_without_fullcount(tx, name)
+
+        self.log.info("With Plumb's -rejectfakemultisig=0 no key is charged, so the recount refuses none of them")
+        for tx, name in [(poc, "PoC"), (b1, "B1"), (b2, "B2"), (v1, "V1"), (jason, "jasonsopko shape")]:
+            res = self.accept(self.nodes[6], tx)
+            assert res['allowed'], f"{name}: -rejectfakemultisig=0 should charge no key: {res}"
+            self.log.info(f"  ok  {name}: accepted with -rejectfakemultisig=0")
 
         self.log.info("Allowance edge, with and without real signatures mixed in")
         self.guarded(11, 1, 'depth', "10 unproven keys", charge=0)

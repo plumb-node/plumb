@@ -1566,7 +1566,10 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
 
     // Check input scripts and signatures.
     // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-    if (!CheckInputScripts(tx, state, m_view, scriptVerifyFlags, true, false, ws.m_precomputed_txdata, GetValidationCache(), nullptr, {}, &ws.m_verified_keys)) {
+    // Keys are recorded for the recount below, which only the unproven-key rule uses: with Plumb's
+    // -rejectfakemultisig=0 nothing is recorded, the script execution cache is used as before, and
+    // the recount does not run, since no input has a set.
+    if (!CheckInputScripts(tx, state, m_view, scriptVerifyFlags, true, false, ws.m_precomputed_txdata, GetValidationCache(), nullptr, {}, ::g_reject_fake_multisig ? &ws.m_verified_keys : nullptr)) {
         // Detect a failure due to a missing witness so that p2p code can handle rejection caching appropriately.
         if (!tx.HasWitness() && SpendsNonAnchorWitnessProg(tx, m_view)) {
             state.Invalid(TxValidationResult::TX_WITNESS_STRIPPED,

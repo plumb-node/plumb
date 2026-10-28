@@ -2338,6 +2338,29 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys)
     BOOST_CHECK_EQUAL(22U, UnprovenBytes(wide_a, TapscriptWitness(128, 128, wide_a), &most));
 }
 
+BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys_plumb_switches)
+{
+    // With Plumb's -rejectbareenvelopes=0 the drop rule counts only the last push before an OP_DROP,
+    // and the recount leaves that key out as the static count does, so it is not charged twice:
+    // eleven unverified keys are one over the allowance either way, and the dropped key is 35 bytes
+    // of data.
+    CScript script{CScript() << std::vector<unsigned char>(33, 2) << OP_DROP};
+    const CScript multisig{MultisigScript(1, 11)};
+    script.insert(script.end(), multisig.begin(), multisig.end());
+    const CScriptWitness witness{MultisigWitness(1, script)};
+    const VerifiedKeys none;
+    for (const bool bare_envelopes : {true, false}) {
+        const auto dcb{script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, &none, bare_envelopes, /*fake_multisig=*/true)};
+        BOOST_CHECK_EQUAL(dcb.first, 33U);
+        BOOST_CHECK_EQUAL(dcb.second, 35U);
+    }
+    // -rejectfakemultisig=0 charges no key, whatever verified
+    const CScript poc{DecoyMultisig(15)};
+    const CScriptWitness poc_witness{MultisigWitness(15, poc)};
+    BOOST_CHECK_GT(poc.DatacarrierBytes(0, &poc_witness, /*dead_branches=*/false, &none, /*bare_envelopes=*/true, /*fake_multisig=*/true).first, 0U);
+    BOOST_CHECK_EQUAL(poc.DatacarrierBytes(0, &poc_witness, /*dead_branches=*/false, &none, /*bare_envelopes=*/true, /*fake_multisig=*/false).first, 0U);
+}
+
 BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
 {
     // A transaction of P2WSH inputs, each spending the given script with the given witness.
