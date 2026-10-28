@@ -1007,7 +1007,7 @@ static constexpr std::array<PlumbFilter, 4> PLUMB_FILTERS{{
     {"-rejectfakeoutputs", DEFAULT_REJECT_FAKE_OUTPUTS, "knots#389"},
     {"-rejectbareenvelopes", DEFAULT_REJECT_BARE_ENVELOPES, "knots#319"},
     {"-rejectfakemultisig", DEFAULT_REJECT_FAKE_MULTISIG, "knots#422"},
-    {"-rejecttokenmessages", DEFAULT_REJECT_TOKEN_MESSAGES, "plumb#2"},
+    {"-rejecttokenmessages", DEFAULT_REJECT_TOKEN_MESSAGES, "knots#489"},
 }};
 
 static void LogPlumbBanner(const ArgsManager& args)
