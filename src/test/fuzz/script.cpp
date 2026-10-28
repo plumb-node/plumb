@@ -103,7 +103,8 @@ FUZZ_TARGET(script, .init = initialize_script)
                                       /*dead_branches=*/fuzzed_data_provider.ConsumeBool(),
                                       /*verified_keys=*/nullptr,
                                       /*bare_envelopes=*/fuzzed_data_provider.ConsumeBool(),
-                                      /*fake_multisig=*/fuzzed_data_provider.ConsumeBool());
+                                      /*fake_multisig=*/fuzzed_data_provider.ConsumeBool(),
+                                      /*ln_revoke_leaf=*/fuzzed_data_provider.ConsumeBool());
     }
     (void)script.HasValidOps();
     (void)script.IsPayToAnchor();
