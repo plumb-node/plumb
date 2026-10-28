@@ -5,7 +5,8 @@
 # Trust: the tag must point at PLUMB_COMMIT, pinned in the manifest, and carry
 # a good signature from the one pinned Plumb release key. The keyring holds
 # that key and nothing else, so no other key can satisfy the check.
-FROM debian:stable-slim AS builder
+# Pinned by digest so a later pack builds on the image the package was tested on.
+FROM debian:stable-slim@sha256:a717a33469731894e77e912ea7d714e27c2dc38ee6554fd1a3102e92999cfc66 AS builder
 
 ARG PLUMB_REPO=https://github.com/plumb-node/plumb.git
 ARG PLUMB_TAG
@@ -70,7 +71,7 @@ RUN for lib in $(ldd /build/bin/bitcoind /build/bin/bitcoin-cli | awk '/=> \//{p
     cat /runtime-packages
 
 # Final image
-FROM debian:stable-slim
+FROM debian:stable-slim@sha256:a717a33469731894e77e912ea7d714e27c2dc38ee6554fd1a3102e92999cfc66
 
 ENV BITCOIN_DATA=/root/.bitcoin
 ENV BITCOIN_PREFIX=/opt/bitcoin
