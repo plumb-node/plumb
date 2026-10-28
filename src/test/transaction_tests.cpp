@@ -971,6 +971,16 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     g_mempool_opts.reject_tokens = false;
     CheckIsStandard(t);
     g_mempool_opts.reject_tokens = true;
+    // Plumb's -rejecttokenmessages=0 lets JSON and Omni token messages through, while -rejecttokens
+    // still refuses Runes
+    g_mempool_opts.reject_token_messages = false;
+    CheckIsStandard(t);
+    t.vout[0].scriptPubKey = CScript() << OP_RETURN << json_mint;
+    CheckIsStandard(t);
+    t.vout[0].scriptPubKey = CScript() << OP_RETURN << OP_13 << OP_FALSE;
+    CheckIsNotStandard(t, "tokens-runes");
+    g_mempool_opts.reject_token_messages = true;
+    t.vout[0].scriptPubKey = CScript() << OP_RETURN << omni_send;
     // Omni Core skips pushnums, wants the marker at the start of the first data push, and reads the
     // version and type from all the pushes joined
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << OP_1 << omni_send;

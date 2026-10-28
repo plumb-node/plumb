@@ -204,6 +204,7 @@ util::Result<void> ApplyArgsManOptions(const ArgsManager& argsman, const CChainP
     mempool_opts.reject_parasites = argsman.GetBoolArg("-rejectparasites", DEFAULT_REJECT_PARASITES);
 
     mempool_opts.reject_tokens = argsman.GetBoolArg("-rejecttokens", DEFAULT_REJECT_TOKENS);
+    mempool_opts.reject_token_messages = argsman.GetBoolArg("-rejecttokenmessages", DEFAULT_REJECT_TOKEN_MESSAGES);
 
     mempool_opts.reject_fake_outputs = argsman.GetBoolArg("-rejectfakeoutputs", DEFAULT_REJECT_FAKE_OUTPUTS);
 
