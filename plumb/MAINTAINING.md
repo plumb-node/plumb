@@ -10,13 +10,17 @@ Branch layout
 2. one merge commit per filter, `Merge knots#N: <title>`, merging the exact
    pull request commit listed in `plumb/filters.json`; where Knots has
    merged the rule and Plumb keeps a switch for it, the branch holds only
-   the Plumb commit that adds the switch,
+   the Plumb commit that adds the switch; where Plumb keeps a switch over
+   part of a pull request (`-rejecttokenmessages` over knots#489), the
+   branch holds the pull request commit and the switch on top; then one
+   merge per other Knots pull request Plumb carries (see below),
 3. the Plumb commits on top: version suffix, user agent, startup banner,
    README, assets, and the revert of Knots commit 6323b42e07 that starts
    `-datacarriersize` at 42 instead of 83.
 
 Releases are signed tags on that branch:
-`v<knots version>.plumb<N>`, with `N` counting up from 1 on each Knots base.
+`v<knots version>.plumb<N>`, with `N` counting up by one with every release,
+across Knots bases (plumb8 was the first on 29.4.3).
 The same `N` goes in `CLIENT_VERSION_SUFFIX` in `CMakeLists.txt`, which is
 what the version string and the `/Plumb:N/` user agent field come from.
 
@@ -62,6 +66,30 @@ When Knots merges a filter, it arrives with the next Knots release. Drop it
 from `PLUMB_FILTERS` and `plumb/filters.json` on that rebase, rerun
 `plumb/tools/gen-assets.py`, and delete its `filter/` branch.
 
+A pull request that changes the rule of a filter already in (knots#470 for
+`-rejectfakemultisig`) is merged right after that filter, goes on that
+filter's branch, and is listed under `amended_by` in its entry in
+`plumb/filters.json`, with its own source, upstream status, commit and
+release. It is not a filter of its own.
+
+When a filter's commits are replaced rather than added to, for example
+when it moves to another pull request, rebuild `29.x-plumb` from the Knots
+tag as for a new Knots release below, keep the filter stack linear so the
+merges never conflict, and replace the branch.
+
+Other Knots pull requests
+-------------------------
+
+A Knots pull request that fixes something other than spam can go in ahead
+of Knots (knots#487 and knots#488 today). It gets the same review, sits on
+top of the filter stack, is merged with
+`git merge -S --no-ff <commit> -m "Merge knots#N: <title>"`, and is listed
+in the README. It gets no `filter/` branch and no entry in `PLUMB_FILTERS`
+or `plumb/filters.json`. A policy change gets its own option in Knots'
+style, default on, so a node can go back to what Knots does
+(`-permitlnrevokeleaf` for knots#487). Drop it on the rebase onto the Knots
+release that ships it.
+
 Moving to a new Knots release
 -----------------------------
 
@@ -69,9 +97,10 @@ Moving to a new Knots release
 2. Rebase each `filter/` branch onto the new tag if it does not merge
    cleanly (review the rebase like any other change), then re-merge them in
    the same order.
-3. Cherry-pick the Plumb commits. Reset the suffix to
-   `.knots<date>.plumb1` to match the new base. Check that the new Knots
-   release still defaults `-datacarriersize` to 83 through
+3. Cherry-pick the Plumb commits. Set the suffix to
+   `.knots<date>.plumb<N>`, the new base's date and the next release
+   number. Check that the new Knots release still defaults
+   `-datacarriersize` to 83 through
    `MAX_OP_RETURN_RELAY` in `src/policy/policy.h`, and that `-corepolicy` in
    `src/init.cpp` does not set it; if Knots moved either, redo the 42 change
    by hand instead of cherry-picking the revert.
