@@ -138,9 +138,10 @@ carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
 any data outside an `OP_RETURN` output means the node does not relay or mine
 the transaction, and `-datacarriersize` (42 bytes by default, 83 in Knots)
 caps the total. `-rejecttokenmessages` instead refuses a token message it
-recognizes, the way Knots' `-rejecttokens` refuses Runes and Counterparty. The
-filters never touch block validity. A block that contains one of these
-transactions is still valid and your node still accepts it.
+recognizes, as part of Knots' `-rejecttokens`, which refuses Runes and
+Counterparty the same way. The filters never touch block validity. A block
+that contains one of these transactions is still valid and your node still
+accepts it.
 
 Every filter is on by default. To turn one off, add its line with `=0` to
 `bitcoin.conf` (or pass it on the command line) and restart the node.
@@ -191,8 +192,11 @@ def filters_md(filters):
             out.append(f"Option `{f['option']}`, default on, Plumb's own filter from [{f['source']}]({f['url']}); "
                        f"there is no Knots pull request.{related} In Plumb since `{f['since']}`.\n")
         else:
+            previously = (f" It began as Plumb's own filter, [{f['previously']}]({f['previously_url']})."
+                          if f.get("previously") else "")
+            related = f" [{f['related']}]({f['related_url']}) asked for filters like it." if f.get("related") else ""
             out.append(f"Option `{f['option']}`, default on, from [{f['source']}]({f['url']}) "
-                       f"(upstream: {f['upstream']}), in Plumb since `{f['since']}`.\n")
+                       f"(upstream: {f['upstream']}), in Plumb since `{f['since']}`.{previously}{related}\n")
         out.append(f"**What it rejects.** {f['catches']}\n")
         out.append(f"**What it leaves alone.** {f['passes']}\n")
         if f.get("cost"):
