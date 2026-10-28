@@ -59,10 +59,11 @@ class DataCarrierLnTaprootRevokeTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 9
         self.setup_clean_chain = True
-        # -corepolicy=0 undoes the framework's -corepolicy, so each node runs the defaults plus one setting
+        # -corepolicy=0 undoes the framework's -corepolicy, so each node runs the defaults plus one setting.
+        # Nodes 0 and 1 set Knots' 83 bytes, since Plumb starts -datacarriersize at 42.
         self.extra_args = [
-            BASE_ARGS,                                   # 0: the defaults, -datacarriersize=83
-            BASE_ARGS + ["-acceptnonstddatacarrier=1"],  # 1: non-standard data too, within the budget
+            BASE_ARGS + ["-datacarriersize=83"],         # 0: the defaults, -datacarriersize=83
+            BASE_ARGS + ["-acceptnonstddatacarrier=1", "-datacarriersize=83"],  # 1: non-standard data too, within the budget
             BASE_ARGS + ["-datacarriersize=42"],         # 2: room for one leaf, not two
             BASE_ARGS + ["-datacarriersize=67"],         # 3: one byte short of two leaves
             BASE_ARGS + ["-datacarriersize=0"],          # 4: no data at all
