@@ -114,7 +114,8 @@ class VerifiedKeyCreditTest(BitcoinTestFramework):
         # Counting is gated on -datacarrierfullcount (default on). Nodes 0 to 4 count and enforce
         # standardness; node 5 turns it off, so nothing is counted there.
         defaults = NODE_ARGS + ["-acceptnonstdtxn=0"]
-        self.extra_args = [defaults] + [defaults + [f"-datacarriersize={n}"] for n in LIMITS[1:]] + [NODE_ARGS + ["-datacarrierfullcount=0"]]
+        # Node 0 sets Knots' 83 bytes, since Plumb starts -datacarriersize at 42.
+        self.extra_args = [defaults + [f"-datacarriersize={LIMITS[0]}"]] + [defaults + [f"-datacarriersize={n}"] for n in LIMITS[1:]] + [NODE_ARGS + ["-datacarrierfullcount=0"]]
         # Node 6 runs Plumb's -rejectfakemultisig=0, which turns the rule and its recount off.
         self.extra_args.append(defaults + ["-rejectfakemultisig=0"])
 
