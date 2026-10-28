@@ -733,6 +733,9 @@ private:
          * when the datacarrier recount runs (the `recount` gate below); otherwise left empty and the script
          * execution cache is used as before. An input that verified no key has an empty set. */
         std::vector<VerifiedKeys> m_verified_keys;
+        /** The data carried in output hashes and keys, as PreChecks counted it (knots#389), for the recount
+         * after PolicyScriptChecks. One entry per output. */
+        std::vector<size_t> m_data_outputs;
         /** Per-input result of the pre-script static datacarrier count, so the post-script recount can
          *  reuse each input's dead-branch count and recompute only its unproven-pubkey part. */
         std::vector<DatacarrierInputCache> m_carrier_cache;
@@ -1077,8 +1080,15 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         return state.Invalid(TxValidationResult::TX_INPUTS_NOT_STANDARD, reason);
     }
 
+    // Outputs whose hash or key is data, for the datacarrier checks and the extra weight, kept in the
+    // workspace for the recount after the scripts have run
+    std::vector<size_t>& data_outputs{ws.m_data_outputs};
+    data_outputs.assign(tx.vout.size(), 0);
+    if (m_pool.m_opts.reject_fake_outputs && (m_pool.m_opts.datacarrier_fullcount || !m_pool.m_opts.accept_non_std_datacarrier || ::g_weight_per_data_byte > WITNESS_SCALE_FACTOR)) {
+        data_outputs = DataOutputBytes(tx, &m_view);
+    }
     if (m_pool.m_opts.datacarrier_fullcount || !m_pool.m_opts.accept_non_std_datacarrier) {
-        const auto dcb = DatacarrierBytes(tx, m_view, /*verified_keys=*/nullptr, &ws.m_carrier_cache);
+        const auto dcb = DatacarrierBytes(tx, m_view, data_outputs, /*verified_keys=*/nullptr, &ws.m_carrier_cache);
         if (dcb.second > 0 && !(m_pool.m_opts.accept_non_std_datacarrier || ignore_rejects.count("txn-datacarrier-nonstandard"))) {
             return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "txn-datacarrier-nonstandard");
         }
@@ -1115,7 +1125,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     // Set entry_sequence to 0 when rejectmsg_zero_mempool_entry_seq is used; this allows txs from a block
     // reorg to be marked earlier than any child txs that were already in the mempool.
     const uint64_t entry_sequence = args.m_ignore_rejects.count(rejectmsg_zero_mempool_entry_seq) ? 0 : m_pool.GetSequence();
-    int32_t extra_weight = CalculateExtraTxWeight(*ptx, m_view, ::g_weight_per_data_byte);
+    int32_t extra_weight = CalculateExtraTxWeight(*ptx, m_view, ::g_weight_per_data_byte, data_outputs);
     if (!m_subpackage.m_changeset) {
         m_subpackage.m_changeset = m_pool.GetChangeSet();
     }
@@ -1592,8 +1602,9 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
     // Recording keeps CheckInputScripts out of the script execution cache, so every input ran and has
     // its set, and an input that verified no key is recounted with an empty one. Only a result without
     // one set per input would be no observation, and the static count would stand.
-    if (recount && ws.m_verified_keys.size() == tx.vin.size()) {
-        const auto dcb = DatacarrierBytes(tx, m_view, &ws.m_verified_keys, &ws.m_carrier_cache);
+    // The outputs count as PreChecks counted them, so the data in output hashes and keys still adds up.
+    if (recount && ws.m_verified_keys.size() == tx.vin.size() && ws.m_data_outputs.size() == tx.vout.size()) {
+        const auto dcb = DatacarrierBytes(tx, m_view, ws.m_data_outputs, &ws.m_verified_keys, &ws.m_carrier_cache);
         if (dcb.first + dcb.second > m_pool.m_opts.max_datacarrier_bytes.value_or(0)) {
             return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "txn-datacarrier-exceeded");
         }
