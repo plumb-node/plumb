@@ -773,7 +773,7 @@ void SetupServerArgs(ArgsManager& argsman, bool can_listen_ipc)
     argsman.AddArg("-rejectfakemultisig", strprintf("Count the keys of a multisig script that no signature in the spend can prove, beyond %u per script, as data carrier bytes (default: %u)", 10, DEFAULT_REJECT_FAKE_MULTISIG), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejectparasites", strprintf("Refuse to relay or mine parasitic overlay protocols (default: %u)", DEFAULT_REJECT_PARASITES), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejecttokens",
-                   strprintf("Refuse to relay or mine transactions involving non-bitcoin tokens (default: %u)",
+                   strprintf("Refuse to relay or mine transactions involving non-bitcoin tokens: Runes, Counterparty, OLGA, JSON token messages (the BRC-20 format) and Omni Layer (default: %u)",
                              DEFAULT_REJECT_TOKENS),
                    ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-subdustfeepenalty",
