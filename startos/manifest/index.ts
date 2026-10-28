@@ -16,8 +16,8 @@ export const manifest = setupManifest({
       source: {
         dockerBuild: {
           buildArgs: {
-            PLUMB_TAG: 'v29.4.2.knots20260508.plumb7',
-            PLUMB_COMMIT: '939e6567f36d16b85280dcc65206f75e0d6bf095',
+            PLUMB_TAG: 'v29.4.3.knots20260508.plumb8',
+            PLUMB_COMMIT: '40f109b412a4f965ec54b3ff39c33bc14d168f0e',
           },
         },
       },
