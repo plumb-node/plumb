@@ -5,8 +5,9 @@
 Plumb is Bitcoin Knots plus the spam-policy filters the Plumb maintainers
 have reviewed and ACKed, whether they were opened against Knots or here, and
 whether or not Knots merges them. Each release is one Knots release plus
-those merges and one default of its own: `-datacarriersize` starts at 42
-bytes, where Knots has started at 83 since v29.2.knots20251110.
+those merges, the few other Knots pull requests listed below, and one
+default of its own: `-datacarriersize` starts at 42 bytes, where Knots has
+started at 83 since v29.2.knots20251110.
 
 It is a policy project, not a consensus project. The filters change what
 your node relays and what your node mines. They do not change which blocks
@@ -46,6 +47,25 @@ that 83 lets through.
 
 The machine-readable list is [plumb/filters.json](plumb/filters.json), with
 the exact commit of each pull request that was merged.
+
+Other Knots pull requests
+-------------------------
+
+Plumb also carries Knots pull requests that fix something other than spam,
+reviewed and merged the same way, until Knots ships them. They are not
+filters, so the startup lines and the filter count leave them out.
+
+- [knots#487](https://github.com/bitcoinknots/bitcoin/pull/487) relays the
+  penalty spend of an LND simple taproot channel, counting the key its
+  revocation leaf drops toward `-datacarriersize` instead of refusing it as
+  non-standard data. Plumb puts it behind `-permitlnrevokeleaf`, default on;
+  `permitlnrevokeleaf=0` refuses the spend as Knots 29.4.3 does.
+  `-corepolicy` leaves the option alone, since under it the spend relays
+  either way.
+- [knots#488](https://github.com/bitcoinknots/bitcoin/pull/488) serves
+  headers and blocks past the BLAKE2b fork to a peer with the `download`
+  permission even when it does not advertise NODE_BLAKE2B, so an indexer
+  behind `whitelist=download@127.0.0.1` keeps syncing. It has no option.
 
 Recommended bitcoin.conf
 ------------------------
