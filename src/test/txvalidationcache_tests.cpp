@@ -5,11 +5,14 @@
 #include <addresstype.h>
 #include <consensus/validation.h>
 #include <key.h>
+#include <policy/policy.h>
+#include <policy/settings.h>
 #include <random.h>
 #include <script/interpreter.h>
 #include <script/sigcache.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
+#include <span.h>
 #include <test/util/setup_common.h>
 #include <txmempool.h>
 #include <util/chaintype.h>
@@ -581,6 +584,56 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_records_verified_keys, TestChain100Setup)
             }
         }
     }
+}
+
+BOOST_FIXTURE_TEST_CASE(plumb_rejectfakemultisig_keeps_script_execution_cache, TestChain100Setup)
+{
+    // knots#470 records the keys a signature verified against for its recount, and a check that records
+    // them skips the script execution cache. Plumb's -rejectfakemultisig=0 turns the recount off, so the
+    // policy script check records nothing and reads the cache. A witness spend that breaks only a policy
+    // flag (MINIMALIF), with an entry put in the cache for its policy flags, tells the two apart: a check
+    // that reads the cache accepts it, one that records keys runs the scripts and refuses it.
+    const CScript p2pk{CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG};
+    const CScript witness_script{CScript() << OP_IF << OP_TRUE << OP_ENDIF};
+
+    CMutableTransaction fund;
+    fund.version = 2;
+    fund.vin.emplace_back(COutPoint{m_coinbase_txns[0]->GetHash(), 0});
+    fund.vout.emplace_back(49 * COIN, GetScriptForDestination(WitnessV0ScriptHash(witness_script)));
+    std::vector<unsigned char> sig;
+    BOOST_REQUIRE(coinbaseKey.Sign(SignatureHash(p2pk, fund, 0, SIGHASH_ALL, 0, SigVersion::BASE), sig));
+    sig.push_back(SIGHASH_ALL);
+    fund.vin[0].scriptSig << sig;
+    BOOST_REQUIRE_EQUAL(CreateAndProcessBlock({fund}, p2pk).vtx.size(), 2U);
+
+    CMutableTransaction spend;
+    spend.version = 2;
+    spend.vin.emplace_back(COutPoint{fund.GetHash(), 0});
+    // 2 is true but not minimal: valid under the block flags, refused under MINIMALIF
+    spend.vin[0].scriptWitness.stack = {{2}, {witness_script.begin(), witness_script.end()}};
+    spend.vout.emplace_back(48 * COIN, GetScriptForDestination(WitnessV0KeyHash(coinbaseKey.GetPubKey())));
+    const CTransactionRef tx{MakeTransactionRef(spend)};
+
+    LOCK(cs_main);
+    BOOST_REQUIRE(!m_node.chainman->ActiveChainstate().CoinsTip().AccessCoin(spend.vin[0].prevout).IsSpent());
+    ValidationCache& validation_cache{m_node.chainman->m_validation_cache};
+    // The policy flags, with or without the unified sighash flag of the BLAKE2b fork
+    for (const unsigned int flags : {STANDARD_SCRIPT_VERIFY_FLAGS, STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_UNIFIED_SIGHASH}) {
+        uint256 entry;
+        validation_cache.ScriptExecutionCacheHasher().Write(UCharCast(tx->GetWitnessHash().begin()), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(entry.begin());
+        validation_cache.m_script_execution_cache.insert(entry);
+    }
+    const bool saved{::g_reject_fake_multisig};
+    ::g_reject_fake_multisig = true;
+    const MempoolAcceptResult on{AcceptToMemoryPool(m_node.chainman->ActiveChainstate(), tx, GetTime(), /*bypass_limits=*/false, /*test_accept=*/true)};
+    ::g_reject_fake_multisig = false;
+    const MempoolAcceptResult off{AcceptToMemoryPool(m_node.chainman->ActiveChainstate(), tx, GetTime(), /*bypass_limits=*/false, /*test_accept=*/true)};
+    ::g_reject_fake_multisig = saved;
+    // On: keys are recorded, so the scripts run and MINIMALIF refuses the spend
+    BOOST_CHECK(on.m_result_type == MempoolAcceptResult::ResultType::INVALID);
+    BOOST_CHECK_EQUAL(on.m_state.GetRejectReason(), "mempool-script-verify-flag-failed (OP_IF/NOTIF argument must be minimal)");
+    // Off: nothing is recorded, the cache entry stands in for the policy check, and the block flags pass
+    BOOST_CHECK_MESSAGE(off.m_result_type == MempoolAcceptResult::ResultType::VALID, off.m_state.ToString());
 }
 
 BOOST_AUTO_TEST_SUITE_END()
