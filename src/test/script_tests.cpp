@@ -1630,9 +1630,9 @@ static std::string DatacarrierBytesStr(const CScript &script, const size_t remai
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
-static std::string DatacarrierBytesStr(const CScript& script, const CScriptWitness& witness)
+static std::string DatacarrierBytesStr(const CScript& script, const CScriptWitness& witness, const bool ln_revoke_leaf = true)
 {
-    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true);
+    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true, ln_revoke_leaf);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
@@ -2500,6 +2500,15 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_ln_taproot_revoke)
     // budget; anywhere else they are non-standard data
     const CScript leaf{CScript() << zeros(32, 1) << OP_DROP << zeros(32, 2) << OP_CHECKSIG};
     BOOST_CHECK_EQUAL("34+0", DatacarrierBytesStr(leaf, TapscriptWitness(1, 1, leaf)));
+    // ... unless Plumb's -permitlnrevokeleaf=0 makes them non-standard data, as 29.4.3 did
+    BOOST_CHECK_EQUAL("0+34", DatacarrierBytesStr(leaf, TapscriptWitness(1, 1, leaf), /*ln_revoke_leaf=*/false));
+    // ... and with -rejectfakemultisig=0 they still count toward the budget
+    {
+        const CScriptWitness spend{TapscriptWitness(1, 1, leaf)};
+        const auto dcb{leaf.DatacarrierBytes(0, &spend, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/false, /*ln_revoke_leaf=*/true)};
+        BOOST_CHECK_EQUAL(dcb.first, 34U);
+        BOOST_CHECK_EQUAL(dcb.second, 0U);
+    }
     BOOST_CHECK_EQUAL("0+34", DatacarrierBytesStr(leaf));
     BOOST_CHECK_EQUAL("0+34", DatacarrierBytesStr(leaf, CScriptWitness()));
     // ... under P2WSH the script is the last witness item, with no control block over it

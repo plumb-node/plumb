@@ -100,8 +100,8 @@ FUZZ_TARGET(datacarrier_dead_branch)
     const CScriptWitness* w{witness ? &*witness : nullptr};
 
     // With the rule off the count is the old one, and the rule never changes the budgeted count
-    const auto off{script.DatacarrierBytes(remaining, w, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*bare_envelopes=*/true)};
-    const auto on{script.DatacarrierBytes(remaining, w, /*dead_branches=*/true, /*verified_keys=*/nullptr, /*bare_envelopes=*/true)};
+    const auto off{script.DatacarrierBytes(remaining, w, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/false, /*ln_revoke_leaf=*/true)};
+    const auto on{script.DatacarrierBytes(remaining, w, /*dead_branches=*/true, /*verified_keys=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/false, /*ln_revoke_leaf=*/true)};
     const auto [early, ref_counted] = ReferenceDatacarrierBytes(script, remaining, w);
     assert(off.second == ref_counted);
     if (early) assert(off.first == *early);

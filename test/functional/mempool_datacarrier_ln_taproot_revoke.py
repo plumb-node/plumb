@@ -13,7 +13,8 @@ that a third party can read the key and sweep the anchor:
 non-standard data and refused the penalty spend of a revoked commitment with
 txn-datacarrier-nonstandard. For that exact leaf, spent through the script path, the 34 bytes the
 drop rule reads (push opcode, key, OP_DROP) count toward the -datacarriersize budget instead, like
-an OP_RETURN payload. Every script near it stays non-standard data.
+an OP_RETURN payload. Every script near it stays non-standard data. Plumb's -permitlnrevokeleaf=0
+refuses the leaf again, as 29.4.3 did.
 """
 from random import randbytes
 
@@ -56,7 +57,7 @@ def xonly_key():
 
 class DataCarrierLnTaprootRevokeTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.num_nodes = 7
+        self.num_nodes = 9
         self.setup_clean_chain = True
         # -corepolicy=0 undoes the framework's -corepolicy, so each node runs the defaults plus one setting
         self.extra_args = [
@@ -67,6 +68,8 @@ class DataCarrierLnTaprootRevokeTest(BitcoinTestFramework):
             BASE_ARGS + ["-datacarriersize=0"],          # 4: no data at all
             BASE_ARGS + ["-datacarrierfullcount=0"],     # 5: no budget
             BASE_ARGS + ["-datacarriercost=2"],          # 6: data bytes weigh 8 WU each
+            BASE_ARGS + ["-permitlnrevokeleaf=0"],       # 7: Plumb's switch off, as 29.4.3
+            BASE_ARGS[1:] + ["-permitlnrevokeleaf=0"],   # 8: the switch off under the framework's -corepolicy
         ]
 
     def fund(self, script_pubkey, n=1):
@@ -136,6 +139,9 @@ class DataCarrierLnTaprootRevokeTest(BitcoinTestFramework):
         assert tx.rehash() not in self.nodes[4].getrawmempool()
         self.generate(self.wallet, 1, sync_fun=self.sync_blocks)
         self.check("The revocation leaf alone in its tree", self.tapscript_spend(revoke_leaf, revoke_priv), {0: True, 4: EXCEEDED})
+
+        self.log.info("-permitlnrevokeleaf=0 refuses it as non-standard data; -corepolicy relays it either way")
+        self.check("The revocation leaf with Plumb's switch off", self.tapscript_spend(revoke_leaf, revoke_priv, siblings=[delay_leaf]), {7: NONSTANDARD, 8: True})
 
         self.log.info("Each input adds 34 bytes: two fit 83 but not 67 or 42, three fit nothing but no budget")
         two = self.tapscript_spend(revoke_leaf, revoke_priv, siblings=[delay_leaf], n_inputs=2)
