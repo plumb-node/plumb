@@ -93,6 +93,8 @@ static constexpr bool DEFAULT_PERMITBAREANCHOR{true};
 static constexpr bool DEFAULT_PERMIT_BAREPUBKEY{false};
 /** Default for -permitbaremultisig */
 static constexpr bool DEFAULT_PERMIT_BAREMULTISIG{false};
+/** Default for -permitlnrevokeleaf */
+static constexpr bool DEFAULT_PERMIT_LN_REVOKE_LEAF{true};
 /** Default for -rejectparasites */
 static constexpr bool DEFAULT_REJECT_PARASITES{true};
 /** The maximum number of witness stack items in a standard P2WSH script */
