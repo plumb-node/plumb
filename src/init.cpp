@@ -754,6 +754,10 @@ void SetupServerArgs(ArgsManager& argsman, bool can_listen_ipc)
                    OptionsCategory::NODE_RELAY);
     argsman.AddArg("-permitbaremultisig", strprintf("Relay transactions creating non-P2SH multisig outputs (default: %u)", DEFAULT_PERMIT_BAREMULTISIG), ArgsManager::ALLOW_ANY,
                    OptionsCategory::NODE_RELAY);
+    argsman.AddArg("-permitlnrevokeleaf",
+                   strprintf("Relay a taproot script path spend of LND's to_local revocation leaf, counting its dropped key (34 bytes) toward -datacarriersize instead of refusing it as non-standard data (default: %u)", DEFAULT_PERMIT_LN_REVOKE_LEAF),
+                   ArgsManager::ALLOW_ANY,
+                   OptionsCategory::NODE_RELAY);
     argsman.AddArg("-permitephemeral=<options>",
                    strprintf("Relay transaction packages that include ephemeral outputs defined by comma-separated options (prefix each by '-' to force off): \"anchor\" to allow minimal anyone-can-spend anchors, \"send\" to allow ordinary output types to be considered ephemeral, and \"dust\" to allow for dust-amount outputs rather than strictly zero-value (default: %s)", "anchor,-send,-dust"),
                    ArgsManager::ALLOW_ANY,
@@ -1239,6 +1243,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     g_reject_dead_branches = args.GetBoolArg("-rejectdeadbranches", g_reject_dead_branches);
     g_reject_bare_envelopes = args.GetBoolArg("-rejectbareenvelopes", g_reject_bare_envelopes);
     g_reject_fake_multisig = args.GetBoolArg("-rejectfakemultisig", g_reject_fake_multisig);
+    g_permit_ln_revoke_leaf = args.GetBoolArg("-permitlnrevokeleaf", g_permit_ln_revoke_leaf);
 
     nBytesPerSigOp = args.GetIntArg("-bytespersigop", nBytesPerSigOp);
     nBytesPerSigOpStrict = args.GetIntArg("-bytespersigopstrict", nBytesPerSigOpStrict);

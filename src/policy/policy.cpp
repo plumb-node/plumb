@@ -43,6 +43,7 @@ unsigned int g_script_size_policy_limit{DEFAULT_SCRIPT_SIZE_POLICY_LIMIT};
 bool g_reject_dead_branches{DEFAULT_REJECT_DEAD_BRANCHES};
 bool g_reject_bare_envelopes{DEFAULT_REJECT_BARE_ENVELOPES};
 bool g_reject_fake_multisig{DEFAULT_REJECT_FAKE_MULTISIG};
+bool g_permit_ln_revoke_leaf{DEFAULT_PERMIT_LN_REVOKE_LEAF};
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
@@ -965,7 +966,7 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
         // the scriptSig (legacy P2SH, bare multisig, P2PKH) comes back at WITNESS_SCALE_FACTOR, and keeps
         // the static count unchanged, byte for byte.
         const VerifiedKeys* input_keys{(verified_keys && consensus_weight_per_byte == 1) ? &(*verified_keys)[i] : nullptr};
-        const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), input_keys, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+        const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), input_keys, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
         ret.first += dcb.first;
         ret.second += dcb.second;
     }
@@ -991,7 +992,7 @@ int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& vi
             const CTxOut &utxo = view.AccessCoin(txin.prevout).out;
             auto[script, consensus_weight_per_byte] = GetScriptForTransactionInput(utxo.scriptPubKey, txin);
             if (weight_per_data_byte > consensus_weight_per_byte) {
-                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
                 mod_weight += int64_t(dcb.first + dcb.second) * (weight_per_data_byte - consensus_weight_per_byte);
             }
         }
