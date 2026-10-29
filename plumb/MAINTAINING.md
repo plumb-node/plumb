@@ -128,7 +128,8 @@ Releasing
    `tools/bump-plumb.sh <knots version>.plumb<N>` checks the release and
    changes the version in its three places. Commit, tag and release it.
 7. Once cesspool.lol grades with the new release, copy its
-   `/check/plumb.conf` and `/check/knots.conf` over `plumb/conf/` and to
+   `/check/plumb.conf`, `/check/knots.conf`, `/check/plumb-lightning.conf`
+   and `/check/knots-lightning.conf` over `plumb/conf/` and to
    plumbnode.org.
 
 GitHub settings
