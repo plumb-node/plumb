@@ -299,7 +299,9 @@ export const fullConfigSpec = sdk.InputSpec.of({
   }),
   rejecttokens: Value.triState({
     name: i18n('Reject Tokens'),
-    description: i18n('Reject tokens transactions (runes)'),
+    description: i18n(
+      "Refuse to relay or mine transactions involving non-bitcoin tokens: Runes, Counterparty, OLGA, JSON token messages (the BRC-20 format) and Omni Layer. Off turns all five off. Plumb's -rejecttokenmessages=1 in the startup log works only while this is on.",
+    ),
     default: null,
     footnote: `${i18n('Default')}: true`,
   }),

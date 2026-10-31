@@ -204,7 +204,7 @@ const dict = {
   'Reject Parasites': 1520,
   'Reject parasite transactions': 1521,
   'Reject Tokens': 1522,
-  'Reject tokens transactions (runes)': 1523,
+  "Refuse to relay or mine transactions involving non-bitcoin tokens: Runes, Counterparty, OLGA, JSON token messages (the BRC-20 format) and Omni Layer. Off turns all five off. Plumb's -rejecttokenmessages=1 in the startup log works only while this is on.": 1523,
   'Mempool Replacement': 1524,
   'Set to disabled to disable RBF entirely, "fee,optin" to honour RBF opt-out signal, or "fee,-optin" to always RBF aka full RBF': 1525,
   'Mempool TRUC': 1526,
