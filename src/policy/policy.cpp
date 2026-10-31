@@ -767,7 +767,9 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCach
     // sharing one small value are data on their own: encoders pay every chunk
     // the same, Lightning anchors come in pairs and HTLC amounts differ, and
     // padding repeats one script. Taproot is left to the curve check, since a
-    // run of small taproot outputs is ordinals postage, not a payload.
+    // run of small taproot outputs is ordinals postage, not a payload. Whitened
+    // chunks at distinct values, above DATA_OUTPUT_RUN_MAX_VALUE or in 20-byte
+    // outputs are not caught, since only their layout would mark them as data.
     std::set<std::pair<TxoutType, CAmount>> data_groups;
     for (size_t i{0}; i < n; ++i) {
         if (data[i]) data_groups.emplace(types[i], tx.vout[i].nValue);
