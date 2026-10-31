@@ -1224,6 +1224,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
         g_weight_per_data_byte = ((*parsed * WITNESS_SCALE_FACTOR) + 99) / 100;
     }
     g_reject_bpub = args.GetBoolArg("-rejectbpub", DEFAULT_REJECT_BPUB);
+    g_reject_fake_outputs = args.GetBoolArg("-rejectfakeoutputs", DEFAULT_REJECT_FAKE_OUTPUTS);
 
     if (auto err = args.AssignIntArgToVar("maxscriptsize", g_script_size_policy_limit); !err) {
         return InitError(util::ErrorString(err));

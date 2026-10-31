@@ -869,6 +869,7 @@ int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& vi
 }
 
 bool g_reject_bpub{DEFAULT_REJECT_BPUB};
+bool g_reject_fake_outputs{DEFAULT_REJECT_FAKE_OUTPUTS};
 
 static bool IsBPUBHeader(const std::vector<unsigned char>& head)
 {

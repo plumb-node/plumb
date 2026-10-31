@@ -1084,7 +1084,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     // workspace for the recount after the scripts have run
     std::vector<size_t>& data_outputs{ws.m_data_outputs};
     data_outputs.assign(tx.vout.size(), 0);
-    if (m_pool.m_opts.reject_fake_outputs && (m_pool.m_opts.datacarrier_fullcount || !m_pool.m_opts.accept_non_std_datacarrier || ::g_weight_per_data_byte > WITNESS_SCALE_FACTOR)) {
+    if (::g_reject_fake_outputs && (m_pool.m_opts.datacarrier_fullcount || !m_pool.m_opts.accept_non_std_datacarrier || ::g_weight_per_data_byte > WITNESS_SCALE_FACTOR)) {
         data_outputs = DataOutputBytes(tx, &m_view);
     }
     if (m_pool.m_opts.datacarrier_fullcount || !m_pool.m_opts.accept_non_std_datacarrier) {

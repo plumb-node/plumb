@@ -3,12 +3,13 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test outputs whose hash or key is data, and -rejectfakeoutputs"""
-from test_framework.messages import COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut
+from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, ser_string_vector
+from test_framework.psbt import PSBT, PSBTMap, PSBT_GLOBAL_UNSIGNED_TX, PSBT_IN_FINAL_SCRIPTWITNESS, PSBT_IN_WITNESS_UTXO
 from test_framework.script import CScript, OP_2, OP_3, OP_TRUE
 from test_framework.script_util import program_to_witness_script, script_to_p2wsh_script
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_node import TestNode
-from test_framework.util import assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error
 from test_framework.wallet import MiniWallet
 
 from random import randbytes
@@ -16,7 +17,7 @@ from random import randbytes
 
 class DataOutputsTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.num_nodes = 5
+        self.num_nodes = 7
         # The framework passes -corepolicy to every node, which turns -rejectfakeoutputs off
         self.extra_args = [
             ["-acceptnonstddatacarrier=1", "-datacarrierfullcount", "-rejectfakeoutputs=1"],
@@ -24,6 +25,9 @@ class DataOutputsTest(BitcoinTestFramework):
             ["-corepolicy=0"],  # Knots defaults: non-OP_RETURN data carriers are rejected outright
             ["-corepolicy=0", "-rejectfakeoutputs=0"],
             ["-datacarrierfullcount"],  # -corepolicy alone turns -rejectfakeoutputs off
+            # Weighing data at -datacarriercost=2 without refusing it, to compare analyzepsbt with the mempool
+            ["-corepolicy=0", "-datacarriercost=2", "-rejectfakeoutputs=0"],
+            ["-corepolicy=0", "-datacarriercost=2", "-acceptnonstddatacarrier=1", "-datacarrierfullcount=0"],
         ]
 
     def test_data_output_transaction(self, node: TestNode, outputs, reject_reason) -> None:
@@ -42,7 +46,7 @@ class DataOutputsTest(BitcoinTestFramework):
 
     def run_test(self):
         self.wallet = MiniWallet(self.nodes[0])
-        counted, tight, default, disabled, corepolicy = self.nodes
+        counted, tight, default, disabled, corepolicy, weighed_off, weighed_on = self.nodes
 
         def p2wsh(program):
             return program_to_witness_script(0, program)
@@ -113,6 +117,27 @@ class DataOutputsTest(BitcoinTestFramework):
             spend.wit.vtxinwit[i + 1].scriptWitness.stack = [script]
         self.wallet.sendrawtransaction(from_node=default, tx_hex=spend.serialize().hex())
         assert spend.rehash() in default.getrawmempool()
+
+        self.log.info("Testing that analyzepsbt's size estimate follows -rejectfakeoutputs.")
+        for node, data_counted in ((weighed_off, False), (weighed_on, True)):
+            utxo = self.wallet.get_utxo(confirmed_only=True)
+            tx = self.wallet.create_self_transfer(utxo_to_spend=utxo, fee_rate=0)["tx"]
+            tx.vout += [CTxOut(nValue=330, scriptPubKey=p2wsh(randbytes(32))) for _ in range(3)]
+            tx.vout[0].nValue -= 3 * 330 + 10 * tx.get_vsize()
+            psbt = PSBT(
+                g=PSBTMap({PSBT_GLOBAL_UNSIGNED_TX: tx.serialize_without_witness()}),
+                i=[PSBTMap({
+                    PSBT_IN_WITNESS_UTXO: CTxOut(int(utxo["value"] * COIN), self.wallet.get_output_script()).serialize(),
+                    PSBT_IN_FINAL_SCRIPTWITNESS: ser_string_vector(tx.wit.vtxinwit[0].scriptWitness.stack),
+                })],
+                o=[PSBTMap() for _ in tx.vout],
+            )
+            estimate = node.analyzepsbt(psbt.to_base64())["estimated_vsize"]
+            accept = node.testmempoolaccept([tx.serialize().hex()])[0]
+            assert accept["allowed"], accept
+            assert_equal(estimate, accept["vsize"])
+            # Three outputs of 41 bytes at -datacarriercost=2 add 123 vbytes, or none when not counted
+            assert_equal(estimate - tx.get_vsize(), 123 if data_counted else 0)
 
 
 if __name__ == '__main__':

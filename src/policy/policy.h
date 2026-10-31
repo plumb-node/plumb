@@ -274,6 +274,9 @@ static constexpr unsigned int DATA_OUTPUT_CURVE_CHECKS{64};
  */
 std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCache* view = nullptr);
 
+/** -rejectfakeoutputs: a global like -rejectbpub, so the PSBT size estimate follows it too */
+extern bool g_reject_fake_outputs;
+
 /** Per-input result of the static datacarrier count (verified_keys == nullptr), cached so the
  *  post-script recount can reuse the dead-branch part and recompute only the unproven-pubkey part. */
 struct DatacarrierInputCache {
