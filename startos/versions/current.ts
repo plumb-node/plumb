@@ -3,9 +3,9 @@ import { rm } from 'fs/promises'
 import { bitcoinConfFile } from '../fileModels/bitcoin.conf'
 
 export const current = VersionInfo.of({
-  version: '#plumb:29.4.3.8:1',
+  version: '#plumb:29.4.3.9:0',
   releaseNotes: {
-    en_US: `Plumb v29.4.3.knots20260508.plumb8, built from the signed source tag, on the wrapper Retropex ships for Bitcoin Knots 29.4.3`,
+    en_US: `Plumb v29.4.3.knots20260508.plumb9, from the signed release tarball, on the wrapper Retropex ships for Bitcoin Knots 29.4.3. Reject Tokens on Mempool Settings now also covers Plumb's JSON and Omni token message checks: set to Off, it turns them off too.`,
   },
   migrations: {
     up: async ({ effects }) => {},
