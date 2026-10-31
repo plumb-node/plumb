@@ -1,26 +1,21 @@
 # Plumb is Bitcoin Knots with extra spam filters in its relay policy:
-# https://github.com/plumb-node/plumb. Plumb publishes signed source tags and
-# no binaries, so this stage builds bitcoind and bitcoin-cli from the tag.
+# https://github.com/plumb-node/plumb. This stage takes bitcoind and
+# bitcoin-cli from the signed Plumb release tarball for x86_64.
 #
-# Trust: the tag must point at PLUMB_COMMIT, pinned in the manifest, and carry
-# a good signature from the one pinned Plumb release key. The keyring holds
-# that key and nothing else, so no other key can satisfy the check.
+# Trust: the keyring must hold exactly the one pinned Plumb release key,
+# SHA256SUMS must match PLUMB_SHA256SUMS, pinned in the manifest, and carry a
+# good signature from that key, and the tarball must match SHA256SUMS.
 # Pinned by digest so a later pack builds on the image the package was tested on.
 FROM debian:stable-slim@sha256:a717a33469731894e77e912ea7d714e27c2dc38ee6554fd1a3102e92999cfc66 AS builder
 
-ARG PLUMB_REPO=https://github.com/plumb-node/plumb.git
-ARG PLUMB_TAG
-ARG PLUMB_COMMIT
-# Parallel compile jobs. Kept low by default: the build machine may be running
-# a node of its own.
-ARG JOBS=4
+ARG PLUMB_VERSION
+ARG PLUMB_SHA256SUMS
 ARG TARGETPLATFORM
 
 ENV PLUMB_SIGNER=89F0E41D72CE523F4AA1CDB692CDFFB7C40CD1BA
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential cmake pkgconf python3 git ca-certificates gnupg \
-        libevent-dev libsqlite3-dev libboost-dev libzmq3-dev \
+        ca-certificates curl gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY assets/plumb-keys/ /tmp/plumb-keys/
@@ -35,33 +30,28 @@ RUN set -e; \
        [ "$(gpg --with-colons --list-keys | awk -F: '/^fpr:/{print $10; exit}')" != "${PLUMB_SIGNER}" ]; then \
         echo "KEYRING IS NOT EXACTLY THE PINNED PLUMB KEY"; exit 1; \
     fi; \
-    git init -q; \
-    git remote add origin "${PLUMB_REPO}"; \
-    git fetch -q --depth 1 origin "refs/tags/${PLUMB_TAG}:refs/tags/${PLUMB_TAG}"; \
-    if [ "$(git rev-parse "${PLUMB_TAG}^{commit}")" != "${PLUMB_COMMIT}" ]; then \
-        echo "TAG ${PLUMB_TAG} DOES NOT POINT AT ${PLUMB_COMMIT}"; exit 1; \
+    TARBALL="bitcoin-${PLUMB_VERSION}-x86_64-linux-gnu.tar.gz"; \
+    BASE="https://github.com/plumb-node/plumb/releases/download/v${PLUMB_VERSION}"; \
+    curl -fsSL --fail-early -o SHA256SUMS "${BASE}/SHA256SUMS" -o SHA256SUMS.asc "${BASE}/SHA256SUMS.asc" -o "${TARBALL}" "${BASE}/${TARBALL}"; \
+    if ! echo "${PLUMB_SHA256SUMS}  SHA256SUMS" | sha256sum -c --status -; then \
+        echo "SHA256SUMS DOES NOT MATCH THE PINNED HASH ${PLUMB_SHA256SUMS}"; exit 1; \
     fi; \
-    git verify-tag --raw "${PLUMB_TAG}" 2> /tmp/verify-tag || true; \
-    if ! grep -q '^\[GNUPG:\] GOODSIG ' /tmp/verify-tag || \
-       ! grep -q "^\[GNUPG:\] VALIDSIG .* ${PLUMB_SIGNER}\$" /tmp/verify-tag; then \
-        cat /tmp/verify-tag; echo "TAG SIGNATURE DOES NOT VERIFY AGAINST THE PINNED KEY"; exit 1; \
+    gpg --status-fd 1 --verify SHA256SUMS.asc SHA256SUMS > /tmp/verify-sums 2>/dev/null || true; \
+    if ! grep -q '^\[GNUPG:\] GOODSIG ' /tmp/verify-sums || \
+       ! grep -q "^\[GNUPG:\] VALIDSIG .* ${PLUMB_SIGNER}\$" /tmp/verify-sums; then \
+        cat /tmp/verify-sums; echo "SHA256SUMS IS NOT SIGNED BY THE PINNED PLUMB KEY"; exit 1; \
     fi; \
-    git checkout -q "${PLUMB_COMMIT}"; \
-    echo "Building ${PLUMB_TAG} at ${PLUMB_COMMIT}, tag signed by ${PLUMB_SIGNER}"
-
-RUN cmake -B build \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_GUI=OFF \
-        -DBUILD_TESTS=OFF \
-        -DBUILD_BENCH=OFF \
-        -DBUILD_FUZZ_BINARY=OFF \
-        -DENABLE_WALLET=ON \
-        -DWITH_ZMQ=ON \
- && cmake --build build -j"${JOBS}" --target bitcoind bitcoin-cli \
- && mkdir -p /build/bin \
- && cp build/bin/bitcoind build/bin/bitcoin-cli /build/bin/ \
- && strip /build/bin/bitcoind /build/bin/bitcoin-cli \
- && /build/bin/bitcoind -version | head -1
+    if ! grep " ${TARBALL}\$" SHA256SUMS | sha256sum -c --status -; then \
+        echo "${TARBALL} DOES NOT MATCH SHA256SUMS"; exit 1; \
+    fi; \
+    mkdir -p /build/bin; \
+    tar -xzf "${TARBALL}" -C /build/bin --strip-components=2 \
+        "bitcoin-${PLUMB_VERSION}/bin/bitcoind" "bitcoin-${PLUMB_VERSION}/bin/bitcoin-cli"; \
+    if [ "$(/build/bin/bitcoind -version | head -1)" != "Bitcoin Knots daemon version v${PLUMB_VERSION}" ]; then \
+        echo "THE BITCOIND IN ${TARBALL} IS NOT v${PLUMB_VERSION}"; exit 1; \
+    fi; \
+    echo "Plumb ${PLUMB_VERSION} from ${TARBALL}, SHA256SUMS ${PLUMB_SHA256SUMS} signed by ${PLUMB_SIGNER}"; \
+    sha256sum /build/bin/bitcoind /build/bin/bitcoin-cli
 
 # The Debian packages that own the shared libraries the binaries load, for the
 # runtime image below. dpkg knows some of them under /usr only.
