@@ -1123,11 +1123,15 @@ static bool CanServeHeaders(const Peer& peer)
  *  The download permission counts as well as NODE_BLAKE2B: the operator
  *  whitelisted the peer, and an indexer there may not advertise the bit.
  *  Serving it the 164-byte headers costs no more than serving any other
- *  download peer. This decides only what we serve; what we sync from stays
+ *  download peer. But noban and a bare -whitelist entry carry download too,
+ *  and a peer that advertises a network bit without NODE_BLAKE2B is a full
+ *  node on the SHA256d chain (every BLAKE2b release advertises the bit), so
+ *  it is left out. This decides only what we serve; what we sync from stays
  *  with CanSyncHeadersFrom. */
 static bool MayServeBlake2bBlocks(const CNode& node, const Peer& peer)
 {
-    return CanServeHeaders(peer) || node.HasPermission(NetPermissionFlags::Download);
+    if (CanServeHeaders(peer)) return true;
+    return node.HasPermission(NetPermissionFlags::Download) && !(peer.m_their_services & (NODE_NETWORK | NODE_NETWORK_LIMITED));
 }
 
 int PeerManagerImpl::PeerBlockSharingHeightLimit(const CNode& node, const Peer& peer) const

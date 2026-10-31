@@ -7,7 +7,8 @@
 A peer that does not advertise NODE_BLAKE2B is served headers, blocks and block
 announcements only up to the stale-peer common height. With the download
 permission (-whitelist=download@..., or a bare -whitelist entry, whose default
-permissions include noban and so download) it is served past the fork anyway.
+permissions include noban and so download) it is served past the fork anyway,
+unless it advertises a network bit: then it is a full node on the SHA256d chain.
 A whitelist entry without download does not qualify.
 """
 
@@ -15,7 +16,10 @@ from test_framework.messages import (
     CInv,
     MSG_BLOCK,
     MSG_WITNESS_FLAG,
+    NODE_NETWORK,
+    NODE_NETWORK_LIMITED,
     NODE_NONE,
+    NODE_WITNESS,
     msg_getblocks,
     msg_getdata,
     msg_getheaders,
@@ -69,14 +73,14 @@ class Blake2bDownloadPermissionTest(BitcoinTestFramework):
         peer.sync_with_ping()
         assert_equal(self.announcement_counts(peer), before)
 
-    def check_peer(self, node, served):
+    def check_peer(self, node, served, services=INDEXER_SERVICES):
         """Connect a peer without NODE_BLAKE2B and check what the node serves it past the common height."""
         tip_height = node.getblockcount()
         assert tip_height > FORK_HEIGHT
         common_hash = int(node.getblockhash(COMMON_HEIGHT), 16)
         post_common = [int(node.getblockhash(height), 16) for height in range(COMMON_HEIGHT + 1, tip_height + 1)]
         self.log.info(f"  getheaders, getblocks and getdata past height {COMMON_HEIGHT}: {'served' if served else 'nothing'}")
-        peer = node.add_p2p_connection(P2PInterface(), services=INDEXER_SERVICES)
+        peer = node.add_p2p_connection(P2PInterface(), services=services)
 
         request = msg_getheaders()
         request.locator.vHave = [common_hash]
@@ -137,6 +141,10 @@ class Blake2bDownloadPermissionTest(BitcoinTestFramework):
         self.restart_node(0, extra_args=self.fork_args + ["-whitelist=127.0.0.1"])
         self.connect_nodes(0, 1)
         self.check_peer(self.nodes[0], served=True)
+
+        self.log.info("A whitelisted full node without NODE_BLAKE2B is on the SHA256d chain and gets nothing")
+        self.check_peer(self.nodes[0], served=False, services=NODE_NETWORK | NODE_WITNESS)
+        self.check_peer(self.nodes[0], served=False, services=NODE_NETWORK_LIMITED | NODE_WITNESS)
 
 
 if __name__ == '__main__':
