@@ -255,6 +255,8 @@ std::pair<CScript, unsigned int> GetScriptForTransactionInput(CScript prevScript
 static constexpr unsigned int DATA_OUTPUT_BYTE_MULTIPLICITY{8};
 /** A run of identical bytes this long in one hash or key marks the output as data */
 static constexpr unsigned int DATA_OUTPUT_BYTE_RUN{6};
+/** Leading zero bytes of a hash or key that the two tells above skip, as a vanity prefix may have them */
+static constexpr size_t DATA_OUTPUT_VANITY_ZEROS{7};
 /** Distinct P2WSH outputs sharing one value of at most DATA_OUTPUT_RUN_MAX_VALUE are data from this many up */
 static constexpr unsigned int DATA_OUTPUT_DUST_RUN{3};
 /** Highest output value a data run is looked for at; batch payouts appear from 600 sat up */

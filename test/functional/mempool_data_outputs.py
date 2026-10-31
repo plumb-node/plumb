@@ -6,7 +6,7 @@
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, ser_string_vector
 from test_framework.psbt import PSBT, PSBTMap, PSBT_GLOBAL_UNSIGNED_TX, PSBT_IN_FINAL_SCRIPTWITNESS, PSBT_IN_WITNESS_UTXO
 from test_framework.script import CScript, OP_2, OP_3, OP_TRUE
-from test_framework.script_util import program_to_witness_script, script_to_p2wsh_script
+from test_framework.script_util import keyhash_to_p2pkh_script, program_to_witness_script, script_to_p2wsh_script
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_node import TestNode
 from test_framework.util import assert_equal, assert_raises_rpc_error
@@ -90,6 +90,12 @@ class DataOutputsTest(BitcoinTestFramework):
 
         self.log.info("Testing that an output to the all-zero burn hash is not data.")
         self.test_data_output_transaction(node=default, outputs=[(20000, program_to_witness_script(0, bytes(20)))], reject_reason=None)
+
+        self.log.info("Testing that paying a vanity address, up to seven leading zero bytes in its hash, is not data.")
+        vanity = bytes(7) + bytes.fromhex("c8e3cf80c3f84064ab17a0593b")
+        self.test_data_output_transaction(node=default, outputs=[(20000, keyhash_to_p2pkh_script(vanity)), (20000, program_to_witness_script(0, vanity))], reject_reason=None)
+        # Eight, 2^64 tries on average, are judged in full and make a run
+        self.test_data_output_transaction(node=default, outputs=[(20000, keyhash_to_p2pkh_script(bytes(8) + vanity[8:]))], reject_reason="txn-datacarrier-nonstandard")
 
         self.log.info("Testing that outputs paying back the scripts of the coins spent are not data.")
         # A run of three 330-sat P2WSH outputs is data unless each pays a script the

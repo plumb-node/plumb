@@ -7,7 +7,9 @@ Policy
   spread over three or more distinct P2WSH outputs that share one value of
   546 sat or less (the OLGA layout, whatever magic it uses), taproot outputs
   whose key is not on the curve, and any hash with one byte value repeated
-  eight times or six times in a row. Lightning anchor outputs, ordinals
-  postage and outputs to the all-zero burn hash are unaffected. The new
+  eight times or six times in a row, past up to seven leading zero bytes.
+  Lightning anchor outputs, ordinals postage, vanity addresses whose hash
+  starts with up to seven zero bytes and outputs to the all-zero burn hash are
+  unaffected. The new
   `-rejectfakeoutputs` option (default: 1, reset by `-corepolicy`) turns the
   detection off without accepting other non-standard data carriers.

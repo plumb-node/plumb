@@ -679,10 +679,17 @@ std::vector<unsigned char> OutputProgram(const CScript& script, TxoutType& type)
 bool ProgramLooksLikeData(const std::vector<unsigned char>& program)
 {
     if (std::all_of(program.begin(), program.end(), [](unsigned char b) { return b == 0; })) return false;
+    // A vanity prefix such as 1111111 or bc1qqqqqqq is leading zero bytes, each one
+    // 256 times the work to grind, so up to DATA_OUTPUT_VANITY_ZEROS are skipped (2^56
+    // tries on average). A longer run is judged in full: chosen data such as a small
+    // number padded with zeros starts that way too.
+    auto start{std::find_if(program.begin(), program.end(), [](unsigned char b) { return b != 0; })};
+    if (size_t(start - program.begin()) > DATA_OUTPUT_VANITY_ZEROS) start = program.begin();
     unsigned int counts[256]{};
     unsigned int run{0};
     unsigned char last{0};
-    for (const unsigned char b : program) {
+    for (auto it{start}; it != program.end(); ++it) {
+        const unsigned char b{*it};
         if (++counts[b] >= DATA_OUTPUT_BYTE_MULTIPLICITY) return true;
         run = (run && b == last) ? run + 1 : 1;
         if (run >= DATA_OUTPUT_BYTE_RUN) return true;
