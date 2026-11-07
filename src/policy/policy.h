@@ -74,6 +74,8 @@ static constexpr bool DEFAULT_REJECT_FAKE_MULTISIG{true};
 static constexpr bool DEFAULT_REJECT_TOKENS{true};
 /** Default for -rejectfakeoutputs */
 static constexpr bool DEFAULT_REJECT_FAKE_OUTPUTS{true};
+/** Default for -rejecttokenmessages */
+static constexpr bool DEFAULT_REJECT_TOKEN_MESSAGES{true};
 /** Default for -subdustfeepenalty */
 static constexpr bool DEFAULT_SUBDUSTFEEPENALTY{true};
 
