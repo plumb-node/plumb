@@ -80,8 +80,14 @@ grep -E 'Plumb filter' "$D/regtest/debug.log" | sed 's/^[^ ]* //' | sed -n 1,8p
 rm -rf "$D"
 
 step "package"
-VER=$(./bitcoind -version | sed -n '1s/.* version v//p')
-[ -n "$VER" ]
+# The tarball and its directory are named after the release tag, as Knots names its own files: RELEASE_VER is
+# the tag without its v, from build-tarball.sh. The binaries of a Knots x.y release say x.y.0 (29.5 says
+# v29.5.0.knots20260508), so their version must be the tag's, or the tag's with .0 after x.y.
+BIN_VER=$(./bitcoind -version | sed -n '1s/.* version v//p')
+[ -n "$BIN_VER" ]
+VER=${RELEASE_VER:-$BIN_VER}
+[ "$BIN_VER" = "$VER" ] || [ "$BIN_VER" = "$(sed -E 's/^([0-9]+\.[0-9]+)\./\1.0./' <<<"$VER")" ] \
+  || { echo "the binaries say v$BIN_VER, which is not the tag's v$VER"; exit 1; }
 DIST="bitcoin-$VER"
 TARBALL="$DIST-$TRIPLET.tar.gz"
 rm -rf "/out/$DIST" "/out/$TARBALL"
@@ -100,6 +106,7 @@ GLIBC_NEEDED=$(objdump -T "$DIST/bin/bitcoind" | grep -o 'GLIBC_[0-9.]*' | sort 
 {
   echo "built: $(date -u +%FT%TZ)"
   echo "version: v$VER"
+  echo "binaries say: v$BIN_VER"
   echo "host: $HOST"
   echo "image: gcc:12.3.0-bullseye (Debian 11, glibc $GLIBC_VER, $GCC_VER)"
   echo "cmake: $CMAKE_VER"
