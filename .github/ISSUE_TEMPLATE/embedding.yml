@@ -20,4 +20,4 @@ body:
     id: version
     attributes:
       label: Plumb or Knots version you saw it relay on
-      placeholder: v29.4.3.knots20260508.plumb9
+      placeholder: v29.5.knots20260508.plumb10
