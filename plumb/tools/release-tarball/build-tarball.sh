@@ -65,6 +65,7 @@ echo "== build $ARCH (jobs=$JOBS, cpus=$CPUS, memory=$MEMORY)"
 docker run --rm --name plumb-release-build --platform "$PLATFORM" \
   --cpus="$CPUS" --memory="$MEMORY" --memory-swap="$MEMORY" \
   --user "$(id -u):$(id -g)" -e HOME=/tmp -e JOBS="$JOBS" -e SOURCE_DATE_EPOCH -e HOST="$HOST" -e TRIPLET="$TRIPLET" \
+  -e RELEASE_VER="${TAG#v}" \
   -v "$W/src:/src" -v "$W/out:/out" -v "$W/deps:/deps" -v "$HERE/inside.sh:/inside.sh:ro" \
   "$IMAGE" bash /inside.sh 2>&1 | tee "$W/out/build.log" \
   || { echo "BUILD FAILED, see $W/out/build.log"; exit 1; }
