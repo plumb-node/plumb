@@ -31,7 +31,10 @@ machine:
   which stripping removes), starts a regtest node and stops it, then packs
   `bitcoin-<version>/bin/{bitcoind,bitcoin-cli}` into
   `bitcoin-<version>-<x86_64 or aarch64>-linux-gnu.tar.gz` with fixed owners
-  and the tag's commit time as every mtime.
+  and the tag's commit time as every mtime. `<version>` is the tag without
+  its `v`, as Knots names its own files. The binaries of a Knots x.y release
+  say x.y.0 (29.5 says v29.5.0.knots20260508), so `inside.sh` checks that
+  they say the tag's version or that with `.0` after x.y.
 - `build-tarball.sh`: verifies the tag's signature, extracts it with
   `git archive`, builds the image, runs `inside.sh`, writes `SHA256SUMS`.
 
