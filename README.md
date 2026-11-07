@@ -65,7 +65,10 @@ filters, so the startup lines and the filter count leave them out.
 - [knots#488](https://github.com/bitcoinknots/bitcoin/pull/488) serves
   headers and blocks past the BLAKE2b fork to a peer with the `download`
   permission even when it does not advertise NODE_BLAKE2B, so an indexer
-  behind `whitelist=download@127.0.0.1` keeps syncing. It has no option.
+  behind `whitelist=download@127.0.0.1` keeps syncing. A peer that
+  advertises NODE_NETWORK or NODE_NETWORK_LIMITED without NODE_BLAKE2B is a
+  full node still on the SHA256d chain, so it is left out of this even when
+  whitelisted. It has no option.
 
 Recommended bitcoin.conf
 ------------------------
