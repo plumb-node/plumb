@@ -1624,14 +1624,14 @@ BOOST_AUTO_TEST_CASE(script_HasValidOps)
     BOOST_CHECK(!script.HasValidOps());
 }
 
-static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool dead_branches = true) {
-    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches);
+static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool dead_branches = true, const bool bare_envelopes = true) {
+    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches, bare_envelopes);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
 static std::string DatacarrierBytesStr(const CScript& script, const CScriptWitness& witness)
 {
-    auto dcb = script.DatacarrierBytes(0, &witness);
+    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*bare_envelopes=*/true);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
@@ -1711,6 +1711,9 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes)
     BOOST_CHECK_EQUAL("0+25", DatacarrierBytesStr(CScript() << zeros(11) << zeros(11) << OP_2DROP));
     // pushnums interleaved in the run don't strand earlier pushes: 12 + 1 (OP_7) + 12 + 1 (OP_2DROP)
     BOOST_CHECK_EQUAL("0+26", DatacarrierBytesStr(CScript() << zeros(11) << OP_7 << zeros(11) << OP_2DROP));
+    // with -rejectbareenvelopes=0 only the last push before OP_DROP counts, as before
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(CScript() << zeros(11) << zeros(11) << OP_2DROP, 0, /*dead_branches=*/true, /*bare_envelopes=*/false));
+    BOOST_CHECK_EQUAL("0+13", DatacarrierBytesStr(CScript() << zeros(11) << zeros(11) << OP_DROP, 0, /*dead_branches=*/true, /*bare_envelopes=*/false));
     // OLGA data obfuscated as p2wsh
     const auto olga_header = CScript() << OP_0 << "003e7374616d703a000000000000000000000000000000000000000000000000"_hex;
     BOOST_CHECK_EQUAL("0+82", DatacarrierBytesStr(olga_header, 2));
