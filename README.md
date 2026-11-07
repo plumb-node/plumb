@@ -59,7 +59,7 @@ filters, so the startup lines and the filter count leave them out.
   penalty spend of an LND simple taproot channel, counting the key its
   revocation leaf drops toward `-datacarriersize` instead of refusing it as
   non-standard data. Plumb puts it behind `-permitlnrevokeleaf`, default on;
-  `permitlnrevokeleaf=0` refuses the spend as Knots 29.4.3 does.
+  `permitlnrevokeleaf=0` refuses the spend as Knots 29.5 does.
   `-corepolicy` leaves the option alone, since under it the spend relays
   either way.
 - [knots#488](https://github.com/bitcoinknots/bitcoin/pull/488) serves
@@ -101,7 +101,7 @@ Getting it
 ----------
 
 Releases are signed git tags named after the Knots release they are built
-on, for example `v29.4.3.knots20260508.plumb9`. Each release page carries
+on, for example `v29.5.knots20260508.plumb10`. Each release page carries
 the source and, from plumb5 on, a pre-built `bitcoind` and `bitcoin-cli`
 for x86_64 Linux; from plumb6 on, for 64-bit ARM (aarch64) Linux too.
 
@@ -137,8 +137,8 @@ not a reproducible build; the recipe is
 ```sh
 git clone https://github.com/plumb-node/plumb
 cd plumb
-git checkout v29.4.3.knots20260508.plumb9
-git verify-tag v29.4.3.knots20260508.plumb9
+git checkout v29.5.knots20260508.plumb10
+git verify-tag v29.5.knots20260508.plumb10
 cmake -B build -DBUILD_GUI=OFF
 cmake --build build -j"$(nproc)"
 ```
