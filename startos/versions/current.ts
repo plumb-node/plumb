@@ -26,9 +26,12 @@ export const current = VersionInfo.of({
       ['>=#knots:29.4.1:1 <#knots:30.0:0']: {
         up: async ({ effects }) => {},
       },
-      // Switching back hands the data to the Knots release this one is built
-      // on, so the Knots package still runs its own migrations from there.
-      ['=#knots:29.4.2:3']: {
+      // Switching back hands the data to Knots 29.4.3:1, the first package
+      // whose Knots holds a coinbase mined from block 979919 until RDTS
+      // expires for 25,920 blocks, as Plumb does. Knots 29.4.2 releases it
+      // after 100, so it would accept blocks Plumb rejects. Later Knots
+      // packages run their own migrations from 29.4.3:1.
+      ['=#knots:29.4.3:1']: {
         down: async ({ effects }) => {},
       },
     },
