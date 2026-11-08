@@ -47,7 +47,10 @@ RUN set -e; \
     mkdir -p /build/bin; \
     tar -xzf "${TARBALL}" -C /build/bin --strip-components=2 \
         "bitcoin-${PLUMB_VERSION}/bin/bitcoind" "bitcoin-${PLUMB_VERSION}/bin/bitcoin-cli"; \
-    if [ "$(/build/bin/bitcoind -version | head -1)" != "Bitcoin Knots daemon version v${PLUMB_VERSION}" ]; then \
+    PLUMB_VERSION0=$(echo "${PLUMB_VERSION}" | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\)\(\.knots.*\)$/\1.0\2/p'); \
+    LINE=$(/build/bin/bitcoind -version | head -1); \
+    if [ "${LINE}" != "Bitcoin Knots daemon version v${PLUMB_VERSION}" ] && \
+       { [ -z "${PLUMB_VERSION0}" ] || [ "${LINE}" != "Bitcoin Knots daemon version v${PLUMB_VERSION0}" ]; }; then \
         echo "THE BITCOIND IN ${TARBALL} IS NOT v${PLUMB_VERSION}"; exit 1; \
     fi; \
     echo "Plumb ${PLUMB_VERSION} from ${TARBALL}, SHA256SUMS ${PLUMB_SHA256SUMS} signed by ${PLUMB_SIGNER}"; \
