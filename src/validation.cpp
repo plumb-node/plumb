@@ -736,6 +736,9 @@ private:
         /** The data carried in output hashes and keys, as PreChecks counted it (knots#389), for the recount
          * after PolicyScriptChecks. One entry per output. */
         std::vector<size_t> m_data_outputs;
+        /** Per-input result of the pre-script static datacarrier count, so the post-script recount can
+         *  reuse each input's dead-branch count and recompute only its unproven-pubkey part. */
+        std::vector<DatacarrierInputCache> m_carrier_cache;
     };
 
     static inline bool MaybeReject_(TxValidationResult reason, const std::string& reason_str, const std::string& debug_msg, const ignore_rejects_type& ignore_rejects, TxValidationState& state) {
@@ -1078,7 +1081,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         data_outputs = DataOutputBytes(tx, &m_view);
     }
     if (m_pool.m_opts.datacarrier_fullcount || !m_pool.m_opts.accept_non_std_datacarrier) {
-        const auto dcb = DatacarrierBytes(tx, m_view, data_outputs);
+        const auto dcb = DatacarrierBytes(tx, m_view, data_outputs, /*verified_keys=*/nullptr, &ws.m_carrier_cache);
         if (dcb.second > 0 && !(m_pool.m_opts.accept_non_std_datacarrier || ignore_rejects.count("txn-datacarrier-nonstandard"))) {
             return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "txn-datacarrier-nonstandard");
         }
@@ -1594,7 +1597,7 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
     // one set per input would be no observation, and the static count would stand.
     // The outputs count as PreChecks counted them, so the data in output hashes and keys still adds up.
     if (recount && ws.m_verified_keys.size() == tx.vin.size() && ws.m_data_outputs.size() == tx.vout.size()) {
-        const auto dcb = DatacarrierBytes(tx, m_view, ws.m_data_outputs, &ws.m_verified_keys);
+        const auto dcb = DatacarrierBytes(tx, m_view, ws.m_data_outputs, &ws.m_verified_keys, &ws.m_carrier_cache);
         if (dcb.first + dcb.second > m_pool.m_opts.max_datacarrier_bytes.value_or(0)) {
             return state.Invalid(TxValidationResult::TX_NOT_STANDARD, "txn-datacarrier-exceeded");
         }
