@@ -2397,6 +2397,48 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
         BOOST_CHECK(DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &too_long) == DatacarrierBytes(tx, view, DataOutputBytes(tx, &view)));
         BOOST_CHECK_EQUAL(0U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &empty).first);
     }
+
+    // The cached recount (fill the cache from the static count, then recount reusing it) equals the
+    // recount with no cache, for every shape and key set, including the crossed, partial and empty ones.
+    // This is the invariant the dead-branch-reuse optimisation rests on.
+    {
+        // A witness script that carries dead-branch data (a push/2drop run) as well as decoy keys, so its
+        // .second (the dead-branch count the recount reuses) is non-zero, not only its key-dependent
+        // .first. The other shapes all have .second == 0, so without this the reuse of a non-zero count
+        // would go untested.
+        CScript data_and_keys{CScript() << std::vector<unsigned char>(40, 7) << std::vector<unsigned char>(40, 8) << OP_2DROP};
+        const CScript decoy_tail{DecoyMultisig(15)};
+        data_and_keys.insert(data_and_keys.end(), decoy_tail.begin(), decoy_tail.end());
+        const CScriptWitness data_witness{MultisigWitness(15, data_and_keys)};
+        // Guard: the added shape really does carry a non-zero dead-branch count for the recount to reuse.
+        const CTransaction data_tx{make_tx({&data_witness})};
+        BOOST_CHECK(DatacarrierBytes(data_tx, view, DataOutputBytes(data_tx, &view)).second > 0);
+
+        const std::vector<std::vector<const CScriptWitness*>> shapes{
+            {&honest_witness, &decoy_witness},
+            {&decoy_witness, &honest_witness},
+            {&decoy_witness, &decoy_witness},
+            {&honest_witness, &honest_witness},
+            {&data_witness, &honest_witness},
+            {&decoy_witness, &data_witness},
+            {&data_witness, &data_witness},
+        };
+        const std::vector<std::vector<VerifiedKeys>> key_sets{
+            {one, one},
+            {VerifiedKeys{}, KeysUpTo(15)},
+            {KeysUpTo(15), VerifiedKeys{}},
+            {VerifiedKeys{}, VerifiedKeys{}},
+            {KeysUpTo(15), KeysUpTo(15)},
+        };
+        for (const auto& shape : shapes) {
+            const CTransaction tx{make_tx(shape)};
+            for (const auto& keys : key_sets) {
+                std::vector<DatacarrierInputCache> cache;
+                DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), /*verified_keys=*/nullptr, &cache); // populate from the static count
+                BOOST_CHECK(DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &keys, &cache) == DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &keys));
+            }
+        }
+    }
 }
 
 /** A checker that answers as told, so the recorder can be seen to change nothing. */
