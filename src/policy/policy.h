@@ -93,6 +93,8 @@ static constexpr bool DEFAULT_PERMITBAREANCHOR{true};
 static constexpr bool DEFAULT_PERMIT_BAREPUBKEY{false};
 /** Default for -permitbaremultisig */
 static constexpr bool DEFAULT_PERMIT_BAREMULTISIG{false};
+/** Default for -permitlnrevokeleaf */
+static constexpr bool DEFAULT_PERMIT_LN_REVOKE_LEAF{true};
 /** Default for -rejectparasites */
 static constexpr bool DEFAULT_REJECT_PARASITES{true};
 /** The maximum number of witness stack items in a standard P2WSH script */
@@ -288,7 +290,7 @@ extern bool g_reject_fake_outputs;
 /** Per-input result of the static datacarrier count (verified_keys == nullptr), cached so the
  *  post-script recount can reuse the dead-branch part and recompute only the unproven-pubkey part. */
 struct DatacarrierInputCache {
-    size_t first;   //!< unproven-pubkey bytes from the static count (keys recompute this)
+    size_t first;   //!< .first of the static count: unproven-pubkey bytes (keys recompute this) plus any budgeted bytes no key changes
     size_t second;  //!< dead-branch/data bytes; independent of the verified keys, reused as-is
     bool normal;    //!< the per-input script reached DatacarrierBytes's normal return (counted is meaningful)
 };

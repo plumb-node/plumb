@@ -43,6 +43,7 @@ unsigned int g_script_size_policy_limit{DEFAULT_SCRIPT_SIZE_POLICY_LIMIT};
 bool g_reject_dead_branches{DEFAULT_REJECT_DEAD_BRANCHES};
 bool g_reject_bare_envelopes{DEFAULT_REJECT_BARE_ENVELOPES};
 bool g_reject_fake_multisig{DEFAULT_REJECT_FAKE_MULTISIG};
+bool g_permit_ln_revoke_leaf{DEFAULT_PERMIT_LN_REVOKE_LEAF};
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
@@ -991,7 +992,7 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
         std::pair<size_t, size_t> dcb;
         if (populate) {
             bool normal{false};
-            dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), /*verified_keys=*/nullptr, &normal, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+            dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), /*verified_keys=*/nullptr, &normal, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
             input_cache->push_back({dcb.first, dcb.second, normal});
         } else if (consume) {
             const DatacarrierInputCache& c{(*input_cache)[i]};
@@ -1000,8 +1001,9 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
                 // so reuse it and recompute only the unproven part, skipping the dead-branch scan. A
                 // per-input empty set is not the same as no observation here (an empty set charges every
                 // counted key, nullptr charges none), so an eligible input is always recomputed, never
-                // read back from c.first.
-                dcb = script.DatacarrierBytesReusing(0, &txin.scriptWitness, input_keys, c.second, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+                // read back from c.first. c.first is passed for what it holds besides that part (the
+                // budgeted bytes of LND's revocation leaf), which the keys cannot change.
+                dcb = script.DatacarrierBytesReusing(0, &txin.scriptWitness, input_keys, c.first, c.second, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
             } else {
                 // input_keys is set only for a witness-derived script, so this is either an input with no
                 // such script (counted the same with keys or without, i.e. nullptr both times) or one that
@@ -1009,7 +1011,7 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
                 dcb = {c.first, c.second};
             }
         } else {
-            dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), input_keys, /*reached_normal_return=*/nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+            dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), input_keys, /*reached_normal_return=*/nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
         }
         ret.first += dcb.first;
         ret.second += dcb.second;
@@ -1036,7 +1038,7 @@ int32_t CalculateExtraTxWeight(const CTransaction& tx, const CCoinsViewCache& vi
             const CTxOut &utxo = view.AccessCoin(txin.prevout).out;
             auto[script, consensus_weight_per_byte] = GetScriptForTransactionInput(utxo.scriptPubKey, txin);
             if (weight_per_data_byte > consensus_weight_per_byte) {
-                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), nullptr, /*reached_normal_return=*/nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+                const auto dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), nullptr, /*reached_normal_return=*/nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
                 mod_weight += int64_t(dcb.first + dcb.second) * (weight_per_data_byte - consensus_weight_per_byte);
             }
         }
