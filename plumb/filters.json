@@ -6,7 +6,7 @@
     "url": "https://github.com/bitcoinknots/bitcoin/pull/389",
     "upstream": "open",
     "branch": "filter/rejectfakeoutputs",
-    "commit": "21b0d5d8aff98db10fa038ff1f38f8b8605a7326",
+    "commit": "ea9c2ddc5458908db4359c057068d16feff58eaa",
     "summary": "Counts outputs whose hash or key is data as data carrier bytes",
     "since": "v29.4.2.knots20260508.plumb1",
     "catches": "Data hidden in the hashes and keys of outputs. A real hash or x-only key looks random, so one byte value eight times in a program or a run of six identical bytes, past up to seven leading zero bytes, or a taproot key that is not on the curve marks it as data, along with its same-type, same-value siblings. Three or more P2WSH outputs sharing one value of 353 sat or less also count: file encoders pay every chunk the same dust amount, and below 354 sat, the smallest dust limit BOLT 2 allows a Lightning channel, a commitment has no P2WSH output but its 330-sat anchors, two at most.",
@@ -24,7 +24,7 @@
     "url": "https://github.com/bitcoinknots/bitcoin/pull/319",
     "upstream": "merged in Knots 29.4.3; the switch is Plumb's",
     "branch": "filter/rejectbareenvelopes",
-    "commit": "6c1c7c371cc6bd0c24bbdb748b4eb74edd06bab6",
+    "commit": "9442b164c218c6b75dadd9c8d2c9330ebe2f62f8",
     "summary": "Counts a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes",
     "since": "v29.4.2.knots20260508.plumb2",
     "catches": "A run of data pushes dropped again with `OP_DROP` or `OP_2DROP`, the envelope shape inscriptions use when `OP_IF` is not available. The whole run counts as data, not only the last push.",
@@ -42,7 +42,7 @@
     "url": "https://github.com/bitcoinknots/bitcoin/pull/422",
     "upstream": "merged in Knots 29.4.3; the switch is Plumb's",
     "branch": "filter/rejectfakemultisig",
-    "commit": "dc0e6c444ad0874e63f1e668334e45f8ead136c5",
+    "commit": "35fc86e19937badf01d606358f4aa24e601e7a2a",
     "amended_by": [
       {
         "source": "knots#470",
@@ -50,7 +50,7 @@
         "upstream": "open",
         "since": "v29.4.3.knots20260508.plumb9",
         "note": "A key in a witness script (P2WSH, P2SH-wrapped P2WSH or a tapscript leaf) counts as proven only if a signature in the spend verified against it, so a signature check that never runs or fails harmlessly, such as one behind `OP_DEPTH OP_0NOTEQUAL OP_NOTIF` or one given an empty signature, proves nothing. Plumb carries the pull request's own commits replayed onto the switch, and `-rejectfakemultisig=0` turns it off with the rest of the rule.",
-        "commit": "be1bb871950706307cec890baa0602c9fa2c43ca"
+        "commit": "780d507041cb11052de36ed9cbbb8dac191558f2"
       }
     ],
     "summary": "Counts the keys of a multisig that no signature in the spend proves, beyond 10 per script, as data carrier bytes",
@@ -75,7 +75,7 @@
     "related": "knots#64",
     "related_url": "https://github.com/bitcoinknots/bitcoin/issues/64",
     "branch": "filter/rejecttokenmessages",
-    "commit": "077aa596d057db39cefcd1acd5c844411150009d",
+    "commit": "8aca929ba739fe20faf00643d5873551c05fcaf7",
     "summary": "Refuses an OP_RETURN that holds a JSON token message or an Omni Layer message",
     "since": "v29.4.2.knots20260508.plumb4",
     "catches": "Token operations written into an `OP_RETURN` that the Runes, Counterparty and OLGA checks of `-rejecttokens` do not match. A JSON object whose `\"p\"` field names the protocol is the BRC-20 format, which ico-20, crc-20 and others copy: `{\"p\":\"ico-20\",\"op\":\"mint\",\"tick\":\"LEAF\"}`. Omni Layer messages begin with `omni`. Most JSON mints on this chain are 41 or 42 bytes, under even a 42-byte `-datacarriersize`. The check runs under `-rejecttokens`, so `-rejecttokens=0` turns it off too.",
