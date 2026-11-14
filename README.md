@@ -101,7 +101,7 @@ Getting it
 ----------
 
 Releases are signed git tags named after the Knots release they are built
-on, for example `v29.5.knots20260508.plumb10`. Each release page carries
+on, for example `v29.5.knots20260508.plumb11`. Each release page carries
 the source and, from plumb5 on, a pre-built `bitcoind` and `bitcoin-cli`
 for x86_64 Linux; from plumb6 on, for 64-bit ARM (aarch64) Linux too.
 
@@ -137,8 +137,8 @@ not a reproducible build; the recipe is
 ```sh
 git clone https://github.com/plumb-node/plumb
 cd plumb
-git checkout v29.5.knots20260508.plumb10
-git verify-tag v29.5.knots20260508.plumb10
+git checkout v29.5.knots20260508.plumb11
+git verify-tag v29.5.knots20260508.plumb11
 cmake -B build -DBUILD_GUI=OFF
 cmake --build build -j"$(nproc)"
 ```
