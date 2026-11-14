@@ -11,6 +11,7 @@
 #include <pubkey.h>
 #include <script/interpreter.h>
 #include <uint256.h>
+#include <util/check.h>
 #include <util/hash_type.h>
 
 #include <algorithm>
@@ -1246,7 +1247,7 @@ std::pair<size_t, size_t> CScript::DatacarrierBytes(const size_t remaining_outpu
     return {(fake_multisig ? UnprovenPubkeyBytes(*this, witness, verified_keys, bare_envelopes) : 0) + budgeted, counted};
 }
 
-std::pair<size_t, size_t> CScript::DatacarrierBytesReusing(const size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, const size_t counted, const bool bare_envelopes, const bool fake_multisig) const
+std::pair<size_t, size_t> CScript::DatacarrierBytesReusing(const size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, const size_t first, const size_t counted, const bool bare_envelopes, const bool fake_multisig) const
 {
     // The same early returns as DatacarrierBytes, which the verified keys cannot change. The caller only
     // reuses counted for a script that reached DatacarrierBytes's normal return, so the dead-branch scan
@@ -1259,7 +1260,14 @@ std::pair<size_t, size_t> CScript::DatacarrierBytesReusing(const size_t remainin
             return {0, opnet_bytes};
         }
     }
-    return {fake_multisig ? UnprovenPubkeyBytes(*this, witness, verified_keys, bare_envelopes) : 0, counted};
+    // DatacarrierBytes's .first is the unproven-pubkey part plus anything it adds that no key can change:
+    // the 34 bytes of LND's revocation leaf, which count toward the budget, and nothing for any other
+    // script. Carry that part over from the static count and recompute only the unproven-pubkey part.
+    // The static count ran on the same script, witness and switches with no keys, so first is never below
+    // its unproven-pubkey part; if it were, carry nothing rather than wrap.
+    const size_t static_unproven{fake_multisig ? UnprovenPubkeyBytes(*this, witness, /*verified_keys=*/nullptr, bare_envelopes) : 0};
+    const size_t key_free{Assume(first >= static_unproven) ? first - static_unproven : 0};
+    return {(fake_multisig ? UnprovenPubkeyBytes(*this, witness, verified_keys, bare_envelopes) : 0) + key_free, counted};
 }
 
 bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator end, opcodetype& opcodeRet, std::vector<unsigned char>* pvchRet)

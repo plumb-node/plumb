@@ -2461,6 +2461,28 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
                 BOOST_CHECK(DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &keys, &cache) == DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &keys));
             }
         }
+
+        // An LND revocation leaf spend (knots#487) puts 34 budgeted bytes in .first next to its
+        // unproven-pubkey part, and no key changes them. Next to a decoy input, the recount that reuses
+        // the cache keeps them, as the one with no cache does.
+        const CScript leaf{CScript() << std::vector<unsigned char>(32, 1) << OP_DROP << std::vector<unsigned char>(32, 2) << OP_CHECKSIG};
+        const CScriptWitness leaf_witness{TapscriptWitness(1, 1, leaf)};
+        const CScript p2tr{CScript() << OP_1 << std::vector<unsigned char>(32, 3)};
+        CMutableTransaction mtx;
+        for (const auto& [input_witness, spk] : std::vector<std::pair<const CScriptWitness*, CScript>>{{&leaf_witness, p2tr}, {&decoy_witness, p2wsh}}) {
+            const COutPoint prevout{Txid::FromUint256(uint256{static_cast<unsigned char>(mtx.vin.size() + 101)}), 0};
+            view.AddCoin(prevout, Coin{CTxOut{COIN, spk}, 1, false}, true);
+            mtx.vin.emplace_back(prevout);
+            mtx.vin.back().scriptWitness = *input_witness;
+        }
+        mtx.vout.emplace_back(COIN, CScript() << OP_TRUE);
+        const CTransaction leaf_tx{mtx};
+        BOOST_CHECK_EQUAL(DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view)).first, 34U);
+        for (const auto& keys : key_sets) {
+            std::vector<DatacarrierInputCache> cache;
+            DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), /*verified_keys=*/nullptr, &cache);
+            BOOST_CHECK(DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), &keys, &cache) == DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), &keys));
+        }
     }
 }
 

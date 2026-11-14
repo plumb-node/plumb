@@ -599,8 +599,10 @@ public:
      *  known from an earlier call on the same script that reached its normal return: recompute only the
      *  unproven-pubkey part (.first) from verified_keys and reuse counted for the rest, skipping the
      *  dead-branch scan. Must not be called for a script that took an early return (unconditional
-     *  OP_RETURN, unparsable), where counted does not describe the script. */
-    std::pair<size_t, size_t> DatacarrierBytesReusing(size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, size_t counted, bool bare_envelopes, bool fake_multisig) const;
+     *  OP_RETURN, unparsable), where counted does not describe the script. first is the .first of that
+     *  call; whatever it holds besides the unproven-pubkey part does not depend on the keys and is
+     *  carried over. */
+    std::pair<size_t, size_t> DatacarrierBytesReusing(size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, size_t first, size_t counted, bool bare_envelopes, bool fake_multisig) const;
 
     void clear()
     {

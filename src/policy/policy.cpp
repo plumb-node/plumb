@@ -1000,8 +1000,9 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
                 // so reuse it and recompute only the unproven part, skipping the dead-branch scan. A
                 // per-input empty set is not the same as no observation here (an empty set charges every
                 // counted key, nullptr charges none), so an eligible input is always recomputed, never
-                // read back from c.first.
-                dcb = script.DatacarrierBytesReusing(0, &txin.scriptWitness, input_keys, c.second, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
+                // read back from c.first. c.first is passed for what it holds besides that part (the
+                // budgeted bytes of LND's revocation leaf), which the keys cannot change.
+                dcb = script.DatacarrierBytesReusing(0, &txin.scriptWitness, input_keys, c.first, c.second, ::g_reject_bare_envelopes, ::g_reject_fake_multisig);
             } else {
                 // input_keys is set only for a witness-derived script, so this is either an input with no
                 // such script (counted the same with keys or without, i.e. nullptr both times) or one that

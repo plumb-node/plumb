@@ -21,13 +21,18 @@ from test_framework.key import ECKey, compute_xonly_pubkey, generate_privkey, si
 from test_framework.messages import COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut
 from test_framework.script import (
     CScript,
+    OP_0NOTEQUAL,
     OP_1,
     OP_2DROP,
+    OP_CHECKMULTISIG,
     OP_CHECKSEQUENCEVERIFY,
     OP_CHECKSIG,
     OP_CHECKSIGVERIFY,
+    OP_DEPTH,
     OP_DROP,
+    OP_ENDIF,
     OP_NOP,
+    OP_NOTIF,
     OP_TRUE,
     SIGHASH_ALL,
     SegwitV0SignatureHash,
@@ -100,6 +105,22 @@ class DataCarrierLnTaprootRevokeTest(BitcoinTestFramework):
         tx.wit.vtxinwit[0].scriptWitness.stack = [sig, bytes(script)]
         return tx
 
+    def decoy(self, n_checks):
+        """knots#470's decoy: a P2WSH 1-of-(n_checks + 1) multisig behind n_checks signature checks that never
+        run. The static count credits every key; the recount finds the one a signature verified against and
+        counts the other n_checks past the allowance of ten as data. Returns the script and a function of the
+        spending tx and the input index that gives the witness stack."""
+        signer = ECKey()
+        signer.generate(compressed=True)
+        keys = [signer.get_pubkey().get_bytes()] + [b'\x02' + randbytes(32) for _ in range(n_checks)]
+        script = CScript([OP_DEPTH, OP_0NOTEQUAL, OP_NOTIF] + [OP_CHECKSIG] * n_checks + [OP_ENDIF]
+                         + [OP_2DROP] * (n_checks // 2) + [OP_DROP] * (n_checks % 2) + [1] + keys + [n_checks + 1, OP_CHECKMULTISIG])
+
+        def stack(tx, i):
+            sig = signer.sign_ecdsa(SegwitV0SignatureHash(script, tx, i, SIGHASH_ALL, FUNDING)) + bytes([SIGHASH_ALL])
+            return [b'', sig] + [randbytes(72) for _ in range(n_checks)] + [bytes(script)]
+        return script, stack
+
     def check(self, what, tx, verdicts):
         """verdicts maps a node to True or to the reject reason it must give; nodes left out are not asked."""
         self.log.info(what)
@@ -142,6 +163,22 @@ class DataCarrierLnTaprootRevokeTest(BitcoinTestFramework):
         self.check("Two revocation leaf inputs, 68 bytes", two, {0: True, 1: True, 2: EXCEEDED, 3: EXCEEDED, 4: EXCEEDED, 5: True})
         three = self.tapscript_spend(revoke_leaf, revoke_priv, siblings=[delay_leaf], n_inputs=3)
         self.check("Three revocation leaf inputs, 102 bytes", three, {0: EXCEEDED, 1: EXCEEDED, 5: True})
+
+        self.log.info("Next to an input whose keys only the recount counts as data, the leaf's 34 bytes still count")
+        # Twelve unverified keys, two past the allowance of ten: 66 bytes that only the recount finds
+        decoy, decoy_stack = self.decoy(12)
+        decoy_spk = script_to_p2wsh_script(decoy)
+        alone = self.spend(self.fund(decoy_spk))
+        alone.wit.vtxinwit[0].scriptWitness.stack = decoy_stack(alone, 0)
+        self.check("The decoy alone, 66 bytes", alone, {0: True, 2: EXCEEDED, 5: True})
+        tap = taproot_construct(compute_xonly_pubkey(generate_privkey())[0], [("leaf", revoke_leaf), ("sibling0", delay_leaf)])
+        both = self.spend(self.fund(tap.scriptPubKey) + self.fund(decoy_spk))
+        info = tap.leaves["leaf"]
+        control = bytes([info.version | tap.negflag]) + tap.internal_pubkey + info.merklebranch
+        sighash = TaprootSignatureHash(both, [CTxOut(FUNDING, tap.scriptPubKey), CTxOut(FUNDING, decoy_spk)], 0, 0, scriptpath=True, leaf_script=revoke_leaf)
+        both.wit.vtxinwit[0].scriptWitness.stack = [sign_schnorr(revoke_priv, sighash), bytes(revoke_leaf), control]
+        both.wit.vtxinwit[1].scriptWitness.stack = decoy_stack(both, 1)
+        self.check("The revocation leaf and the decoy, 34 and 66 bytes", both, {0: EXCEEDED, 5: True})
 
         self.log.info("Every script near it is still non-standard data, whatever the budget")
         junk = randbytes(32)
