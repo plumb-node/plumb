@@ -43,6 +43,7 @@ unsigned int g_script_size_policy_limit{DEFAULT_SCRIPT_SIZE_POLICY_LIMIT};
 bool g_reject_dead_branches{DEFAULT_REJECT_DEAD_BRANCHES};
 bool g_reject_bare_envelopes{DEFAULT_REJECT_BARE_ENVELOPES};
 bool g_reject_fake_multisig{DEFAULT_REJECT_FAKE_MULTISIG};
+bool g_reject_unverified_witness{DEFAULT_REJECT_UNVERIFIED_WITNESS};
 bool g_permit_ln_revoke_leaf{DEFAULT_PERMIT_LN_REVOKE_LEAF};
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
@@ -963,6 +964,30 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCach
     return ret;
 }
 
+/**
+ * Bytes of the witness items of a P2WSH or tapscript spend that no verified signature check used, past
+ * UNVERIFIED_WITNESS_ALLOWANCE. The witness script, a tapscript's control block and an annex are not
+ * items here. Items are matched by their bytes against the signatures and keys the policy script check
+ * recorded, so a copy of a verified key elsewhere in the witness counts as used. An item the script only
+ * drops, or hands to a signature check that never runs, matches nothing: data dressed as signatures
+ * behind a branch that is never taken counts in full.
+ */
+static size_t UnverifiedWitnessBytes(const CTxIn& txin, const bool taproot, const VerifiedKeys& verified)
+{
+    Span stack{txin.scriptWitness.stack};
+    if (taproot && stack.size() >= 2 && !stack.back().empty() && stack.back()[0] == ANNEX_TAG) {
+        SpanPopBack(stack);
+    }
+    // The script, and after it a tapscript's control block
+    const size_t trailing{taproot ? 2U : 1U};
+    if (stack.size() < trailing) return 0;
+    size_t unverified{0};
+    for (size_t i{0}; i + trailing < stack.size(); ++i) {
+        if (!verified.count(stack[i])) unverified += stack[i].size();
+    }
+    return unverified > UNVERIFIED_WITNESS_ALLOWANCE ? unverified - UNVERIFIED_WITNESS_ALLOWANCE : 0;
+}
+
 std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs, const std::vector<VerifiedKeys>* verified_keys, std::vector<DatacarrierInputCache>* input_cache)
 {
     std::pair<size_t, size_t> ret{0, 0};
@@ -990,12 +1015,15 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
         // the static count unchanged, byte for byte.
         const VerifiedKeys* input_keys{(verified_keys && consensus_weight_per_byte == 1) ? &(*verified_keys)[i] : nullptr};
         std::pair<size_t, size_t> dcb;
+        // Whether the input's script reached DatacarrierBytes's normal return. An early return has
+        // already counted the witness (OPNet) or the whole script, so the witness items are not added.
+        bool normal{false};
         if (populate) {
-            bool normal{false};
             dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), /*verified_keys=*/nullptr, &normal, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
             input_cache->push_back({dcb.first, dcb.second, normal});
         } else if (consume) {
             const DatacarrierInputCache& c{(*input_cache)[i]};
+            normal = c.normal;
             if (input_keys && c.normal) {
                 // Only the unproven-pubkey part can change with the keys; the dead-branch count cannot,
                 // so reuse it and recompute only the unproven part, skipping the dead-branch scan. A
@@ -1011,7 +1039,15 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
                 dcb = {c.first, c.second};
             }
         } else {
-            dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), input_keys, /*reached_normal_return=*/nullptr, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
+            dcb = script.DatacarrierBytes(0, &txin.scriptWitness, FollowDeadBranches(txin), input_keys, &normal, ::g_reject_bare_envelopes, ::g_reject_fake_multisig, ::g_permit_ln_revoke_leaf);
+        }
+        // Only the recount knows which witness items a signature check verified. input_keys is set only
+        // for a script taken from the witness, so P2WPKH and key-path spends never reach this.
+        if (input_keys && normal && ::g_reject_unverified_witness) {
+            int version;
+            std::vector<unsigned char> program;
+            const bool taproot{utxo.scriptPubKey.IsWitnessProgram(version, program) && version == 1};
+            dcb.first += UnverifiedWitnessBytes(txin, taproot, *input_keys);
         }
         ret.first += dcb.first;
         ret.second += dcb.second;
