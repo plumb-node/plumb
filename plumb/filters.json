@@ -85,5 +85,23 @@
       "height": 971661,
       "note": "the first ico-20 mint since the fork, `{\"p\":\"ico-20\",\"op\":\"mint\",\"tick\":\"LEAF\"}` in a 42-byte `OP_RETURN`"
     }
+  },
+  {
+    "option": "-rejectunverifiedwitness",
+    "name": "Unverified witness items",
+    "source": "plumb#8",
+    "url": "https://github.com/plumb-node/plumb/pull/8",
+    "upstream": "none, Plumb's own",
+    "branch": "filter/rejectunverifiedwitness",
+    "commit": "27e7f78ea04f0d2a0b4a71f3421c19138ec3180c",
+    "summary": "Counts the bytes of witness items no verified signature check used, past 42 per input, as data carrier bytes",
+    "since": "v29.5.knots20260508.plumb12",
+    "catches": "Data handed to a P2WSH, P2SH-P2WSH or tapscript spend as witness items that the script drops, or passes to a signature check that never runs. The padded fake-key reveals since block 981910 put 13 items of 64 bytes, dressed as signatures, behind `OP_SIZE 64 OP_EQUAL OP_NOTIF` and drop them; a tapscript at block 981837 drops 555 bytes with eight `OP_DROP`s. After the script check, an item counts unless a signature that verified, or the key it verified against, has the same bytes.",
+    "passes": "Signatures and the keys they verified against, copies of those keys, and up to 42 bytes per input that no signature verified: a hash preimage or a key a script only hashes, with a selector beside it. Of the 289,276 transactions mined from the fork through block 982560 that plumb11 relays and that carry witness item bytes on a P2WSH, P2SH-P2WSH or tapscript input, it refuses only the block 981837 tapscript.",
+    "example": {
+      "txid": "3b92ecd5ce1d3e1f918dda4897c0cd65e8f927b5634805d2ebc3f20dbdabb81a",
+      "height": 981837,
+      "note": "a tapscript leaf of eight `OP_DROP`s before one key, spent with 555 bytes of data in the items it drops"
+    }
   }
 ]

@@ -1005,11 +1005,12 @@ struct PlumbFilter {
     bool default_value;
     std::string_view source;
 };
-static constexpr std::array<PlumbFilter, 4> PLUMB_FILTERS{{
+static constexpr std::array<PlumbFilter, 5> PLUMB_FILTERS{{
     {"-rejectfakeoutputs", DEFAULT_REJECT_FAKE_OUTPUTS, "knots#389"},
     {"-rejectbareenvelopes", DEFAULT_REJECT_BARE_ENVELOPES, "knots#319"},
     {"-rejectfakemultisig", DEFAULT_REJECT_FAKE_MULTISIG, "knots#422"},
     {"-rejecttokenmessages", DEFAULT_REJECT_TOKEN_MESSAGES, "knots#489"},
+    {"-rejectunverifiedwitness", DEFAULT_REJECT_UNVERIFIED_WITNESS, "plumb#8"},
 }};
 
 static void LogPlumbBanner(const ArgsManager& args)

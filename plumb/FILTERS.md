@@ -113,6 +113,26 @@ rejecttokenmessages=0
 or `-rejecttokenmessages=0` on the command line. The code is on the [`filter/rejecttokenmessages`](https://github.com/plumb-node/plumb/tree/filter/rejecttokenmessages) branch and in [knots#489](https://github.com/bitcoinknots/bitcoin/pull/489).
 
 
+Unverified witness items
+------------------------
+
+Option `-rejectunverifiedwitness`, default on, Plumb's own filter from [plumb#8](https://github.com/plumb-node/plumb/pull/8); there is no Knots pull request. In Plumb since `v29.5.knots20260508.plumb12`.
+
+**What it rejects.** Data handed to a P2WSH, P2SH-P2WSH or tapscript spend as witness items that the script drops, or passes to a signature check that never runs. The padded fake-key reveals since block 981910 put 13 items of 64 bytes, dressed as signatures, behind `OP_SIZE 64 OP_EQUAL OP_NOTIF` and drop them; a tapscript at block 981837 drops 555 bytes with eight `OP_DROP`s. After the script check, an item counts unless a signature that verified, or the key it verified against, has the same bytes.
+
+**What it leaves alone.** Signatures and the keys they verified against, copies of those keys, and up to 42 bytes per input that no signature verified: a hash preimage or a key a script only hashes, with a selector beside it. Of the 289,276 transactions mined from the fork through block 982560 that plumb11 relays and that carry witness item bytes on a P2WSH, P2SH-P2WSH or tapscript input, it refuses only the block 981837 tapscript.
+
+**Example.** `3b92ecd5ce1d3e1f918dda4897c0cd65e8f927b5634805d2ebc3f20dbdabb81a` at block 981837: a tapscript leaf of eight `OP_DROP`s before one key, spent with 555 bytes of data in the items it drops.
+
+**Turn it off.** In `bitcoin.conf`:
+
+```
+rejectunverifiedwitness=0
+```
+
+or `-rejectunverifiedwitness=0` on the command line. The code is on the [`filter/rejectunverifiedwitness`](https://github.com/plumb-node/plumb/tree/filter/rejectunverifiedwitness) branch and in [plumb#8](https://github.com/plumb-node/plumb/pull/8).
+
+
 Lower data limits
 -----------------
 
