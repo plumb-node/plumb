@@ -433,7 +433,11 @@ public:
  *
  * Every result is passed through untouched. It only ever sees keys whose signature the wrapped
  * checker accepted, and an empty signature is never accepted, so a key lands in the set only if a
- * real signature was checked against exactly those bytes during this execution. Wrap the
+ * real signature was checked against exactly those bytes during this execution. The signature
+ * itself is recorded beside its key, so the witness items a verified check used can be told from
+ * the ones it never touched (-rejectunverifiedwitness). A signature never matches a key the
+ * unproven-key count looks up: DER starts with 0x30, which no key encoding does, and a Schnorr
+ * signature is 64 or 65 bytes, which no key in a witness script is. Wrap the
  * outermost checker, so a signature-cache hit in the one beneath still records. The signature hash
  * rules are passed on as given, so a signature accepted under either set of rules is recorded.
  *
@@ -444,10 +448,14 @@ class KeyRecordingSignatureChecker : public DeferringSignatureChecker
 {
     VerifiedKeys& m_keys;
 
-    void Record(Span<const unsigned char> key) const
+    void Record(Span<const unsigned char> sig, Span<const unsigned char> key) const
     {
         // Past the cap further keys go unrecorded, which can only make a spend look less proven.
-        if (m_keys.size() < MAX_PUBKEYS_PER_MULTI_A) m_keys.emplace(key.begin(), key.end());
+        // The cap counts a signature and its key, so it is twice the key limit.
+        if (m_keys.size() < 2 * MAX_PUBKEYS_PER_MULTI_A) {
+            m_keys.emplace(key.begin(), key.end());
+            m_keys.emplace(sig.begin(), sig.end());
+        }
     }
 
 public:
@@ -456,14 +464,14 @@ public:
     bool CheckECDSASignature(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, SighashRules sighash_rules = SighashRules::LEGACY) const override
     {
         const bool ok{DeferringSignatureChecker::CheckECDSASignature(scriptSig, vchPubKey, scriptCode, sigversion, sighash_rules)};
-        if (ok) Record(vchPubKey);
+        if (ok) Record(scriptSig, vchPubKey);
         return ok;
     }
 
     bool CheckSchnorrSignature(Span<const unsigned char> sig, Span<const unsigned char> pubkey, SigVersion sigversion, ScriptExecutionData& execdata, ScriptError* serror = nullptr, SighashRules sighash_rules = SighashRules::LEGACY) const override
     {
         const bool ok{DeferringSignatureChecker::CheckSchnorrSignature(sig, pubkey, sigversion, execdata, serror, sighash_rules)};
-        if (ok) Record(pubkey);
+        if (ok) Record(sig, pubkey);
         return ok;
     }
 };

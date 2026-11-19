@@ -38,7 +38,7 @@ static const int MAX_PUBKEYS_PER_MULTISIG = 20;
 /** The limit of keys in OP_CHECKSIGADD-based scripts. It is due to the stack limit in BIP342. */
 static constexpr unsigned int MAX_PUBKEYS_PER_MULTI_A = 999;
 
-/** The public keys a non-empty signature verified against while one input was executed. */
+/** The public keys a non-empty signature verified against while one input was executed, and those signatures. */
 using VerifiedKeys = std::set<std::vector<unsigned char>>;
 
 // Maximum script length in bytes

@@ -12,6 +12,7 @@
 #include <core_io.h>
 #include <key.h>
 #include <policy/policy.h>
+#include <policy/settings.h>
 #include <rpc/util.h>
 #include <script/script.h>
 #include <script/script_error.h>
@@ -2363,6 +2364,10 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys_plumb_switches)
 
 BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
 {
+    // The decoy witnesses carry items no signature verified, which Plumb's -rejectunverifiedwitness
+    // would add on top of the keys; this test is about the keys alone (see plumb_unverified_witness_count).
+    const bool saved_unverified_witness{::g_reject_unverified_witness};
+    ::g_reject_unverified_witness = false;
     // A transaction of P2WSH inputs, each spending the given script with the given witness.
     const CScript honest{MultisigScript(1, 3)};
     const CScript decoy{DecoyMultisig(15)};
@@ -2483,7 +2488,16 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
             DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), /*verified_keys=*/nullptr, &cache);
             BOOST_CHECK(DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), &keys, &cache) == DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), &keys));
         }
+        // The cached and uncached recounts agree with -rejectunverifiedwitness on too, and it adds the
+        // decoy's unverified items to both
+        ::g_reject_unverified_witness = true;
+        for (const auto& keys : key_sets) {
+            std::vector<DatacarrierInputCache> cache;
+            DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), /*verified_keys=*/nullptr, &cache);
+            BOOST_CHECK(DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), &keys, &cache) == DatacarrierBytes(leaf_tx, view, DataOutputBytes(leaf_tx, &view), &keys));
+        }
     }
+    ::g_reject_unverified_witness = saved_unverified_witness;
 }
 
 /** A checker that answers as told, so the recorder can be seen to change nothing. */
@@ -2522,24 +2536,27 @@ BOOST_AUTO_TEST_CASE(key_recording_signature_checker)
         BOOST_CHECK_EQUAL(answer, recorder.CheckSchnorrSignature(sig, xonly, SigVersion::TAPSCRIPT, execdata));
         BOOST_CHECK_EQUAL(answer, recorder.CheckLockTime(CScriptNum{1}));
         BOOST_CHECK_EQUAL(answer, recorder.CheckSequence(CScriptNum{1}));
-        BOOST_CHECK_EQUAL(keys.size(), answer ? 2U : 0U);
+        // The keys, and the signature that verified against them (the same bytes both times here)
+        BOOST_CHECK_EQUAL(keys.size(), answer ? 3U : 0U);
         if (answer) {
             BOOST_CHECK(keys.count(key));
             BOOST_CHECK(keys.count(xonly));
+            BOOST_CHECK(keys.count(sig));
         }
     }
 
-    // Past the cap further keys go unnoticed, but every answer is still passed through.
+    // Past the cap further keys go unnoticed, but every answer is still passed through. The cap counts
+    // signatures and keys together; here one signature verifies against every key.
     FixedAnswerChecker inner{true};
     VerifiedKeys keys;
     KeyRecordingSignatureChecker recorder{inner, keys};
-    for (unsigned int i{0}; i < MAX_PUBKEYS_PER_MULTI_A + 10; ++i) {
+    for (unsigned int i{0}; i < 2 * MAX_PUBKEYS_PER_MULTI_A + 10; ++i) {
         std::vector<unsigned char> k(33, 2);
         k[1] = i & 0xff;
         k[2] = i >> 8;
         BOOST_CHECK(recorder.CheckECDSASignature(sig, k, code, SigVersion::WITNESS_V0));
     }
-    BOOST_CHECK_EQUAL(keys.size(), size_t{MAX_PUBKEYS_PER_MULTI_A});
+    BOOST_CHECK_EQUAL(keys.size(), size_t{2 * MAX_PUBKEYS_PER_MULTI_A});
 
     // The signature hash rules reach the wrapped checker as given, and a key is noted under either set.
     for (const SighashRules accepted : {SighashRules::LEGACY, SighashRules::UNIFIED}) {
@@ -2550,7 +2567,7 @@ BOOST_AUTO_TEST_CASE(key_recording_signature_checker)
             const bool expected{asked == accepted};
             BOOST_CHECK_EQUAL(expected, rules_recorder.CheckECDSASignature(sig, key, code, SigVersion::WITNESS_V0, asked));
             BOOST_CHECK_EQUAL(expected, rules_recorder.CheckSchnorrSignature(sig, xonly, SigVersion::TAPSCRIPT, execdata, nullptr, asked));
-            BOOST_CHECK_EQUAL(rules_keys.size(), expected ? 2U : 0U);
+            BOOST_CHECK_EQUAL(rules_keys.size(), expected ? 3U : 0U);
         }
     }
 }

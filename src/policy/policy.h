@@ -70,6 +70,15 @@ static constexpr bool DEFAULT_REJECT_DEAD_BRANCHES{true};
 static constexpr bool DEFAULT_REJECT_BARE_ENVELOPES{true};
 /** Default for -rejectfakemultisig */
 static constexpr bool DEFAULT_REJECT_FAKE_MULTISIG{true};
+/** Default for -rejectunverifiedwitness */
+static constexpr bool DEFAULT_REJECT_UNVERIFIED_WITNESS{true};
+/**
+ * Bytes of witness items per input that no verified signature check used, allowed before the rest
+ * count as data carrier bytes. It covers a 32-byte hash preimage or a 33-byte key a script only
+ * hashes, with a selector beside it, which is what spends of many inputs carry. Two such items on
+ * one input count past it, toward -datacarriersize.
+ */
+static constexpr size_t UNVERIFIED_WITNESS_ALLOWANCE{42};
 /** Default for -rejecttokens */
 static constexpr bool DEFAULT_REJECT_TOKENS{true};
 /** Default for -rejectfakeoutputs */

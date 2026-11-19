@@ -52,7 +52,9 @@ NONSTANDARD = "txn-datacarrier-nonstandard"
 EXCEEDED = "txn-datacarrier-exceeded"
 # What the drop rule reads for the leaf's first key: push opcode, 32 byte key, OP_DROP
 LEAF_BYTES = 34
-BASE_ARGS = ["-corepolicy=0", f"-testactivationheight=blake2b@{FORK_HEIGHT}", "-rdtsexpiry=2000000000"]
+# The decoy's signature-sized items are dropped unverified, which Plumb's -rejectunverifiedwitness would
+# add to the exact charges here; that rule has its own test (mempool_datacarrier_unverified_witness.py).
+BASE_ARGS = ["-corepolicy=0", f"-testactivationheight=blake2b@{FORK_HEIGHT}", "-rdtsexpiry=2000000000", "-rejectunverifiedwitness=0"]
 
 
 def xonly_key():
