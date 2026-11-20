@@ -7,7 +7,7 @@
 [Plumb](https://github.com/plumb-node/plumb) is Bitcoin Knots plus the spam-policy filters the Plumb maintainers have reviewed, each on by default and each its own option. It follows the same chain as the Knots release it is built on.
 
 - **Upstream repo:** <https://github.com/plumb-node/plumb>
-- **Wrapper source:** branch [`startos`](https://github.com/plumb-node/plumb/tree/startos) of the Plumb repo, based on [Retropex/knots-startos](https://github.com/Retropex/knots-startos) (branch `POW`)
+- **Wrapper source:** branch [`startos`](https://github.com/plumb-node/plumb/tree/startos) of the Plumb repo, based on Leo Haf's [knots-startos](https://github.com/Horizon-btc/knots-startos), release `v29.5.knots20260508`
 
 This package shares the `bitcoind` package ID with the Bitcoin Knots package for the BLAKE2b chain, so you can switch between the two while keeping the blockchain data and dependent service connections.
 
