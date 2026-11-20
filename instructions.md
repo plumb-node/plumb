@@ -36,7 +36,7 @@ The **RPC Interface** is where wallets, indexers, Lightning nodes, and other dep
 Four configuration actions cover the full set of editable `bitcoin.conf` values, grouped to be navigable:
 
 - **Mempool Settings** — Knots' policy controls (OP_RETURN limits, parasite/token filters, replacement rules, ancestor/descendant limits, dust relay fee, etc.) plus standard mempool sizing.
-- Plumb's own filters are not on these settings screens. They are on by default, and the node lists them at startup in its log (`Plumb filter ...` lines).
+- Plumb's own filters are on by default, and the node lists them at startup in its log (`Plumb filter ...` lines). **Reject Unverified Witness** on Mempool Settings sets `-rejectunverifiedwitness`; the other four have no switches of their own on these settings screens.
 - **Reject Tokens** on Mempool Settings covers Runes, Counterparty, OLGA, JSON token messages (the BRC-20 format) and Omni Layer. Set to Off, it turns all five off, Plumb's `-rejecttokenmessages` filter included, though that filter's startup line still says `=1`.
 - **Max OP_RETURN Size** on Mempool Settings starts empty, which means Plumb's default of 42 bytes; Bitcoin Knots starts at 83. Leave it empty to keep 42.
 - **Peer Settings** — `onlynet`, BIP324 v2 transport, I2P SAM proxy on/off, manual peers, max connections.

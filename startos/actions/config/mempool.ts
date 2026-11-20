@@ -30,6 +30,7 @@ export const mempoolConfig = sdk.Action.withInput(
     rejecttokens: true,
     rejectdeadbranches: true,
     rejectbpub: true,
+    rejectunverifiedwitness: true,
     mempoolreplacement: true,
     mempooltruc: true,
     permitbareanchor: true,
