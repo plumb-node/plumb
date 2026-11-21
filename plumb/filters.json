@@ -47,9 +47,9 @@
       {
         "source": "knots#470",
         "url": "https://github.com/bitcoinknots/bitcoin/pull/470",
-        "upstream": "open",
+        "upstream": "merged in Knots 29.5.1; the switch is Plumb's",
         "since": "v29.4.3.knots20260508.plumb9",
-        "note": "A key in a witness script (P2WSH, P2SH-wrapped P2WSH or a tapscript leaf) counts as proven only if a signature in the spend verified against it, so a signature check that never runs or fails harmlessly, such as one behind `OP_DEPTH OP_0NOTEQUAL OP_NOTIF` or one given an empty signature, proves nothing. Plumb carries the pull request's own commits replayed onto the switch, and `-rejectfakemultisig=0` turns it off with the rest of the rule.",
+        "note": "A key in a witness script (P2WSH, P2SH-wrapped P2WSH or a tapscript leaf) counts as proven only if a signature in the spend verified against it, so a signature check that never runs or fails harmlessly, such as one behind `OP_DEPTH OP_0NOTEQUAL OP_NOTIF` or one given an empty signature, proves nothing. `-rejectfakemultisig=0` turns it off with the rest of the rule.",
         "commit": "780d507041cb11052de36ed9cbbb8dac191558f2"
       }
     ],
