@@ -7,7 +7,9 @@
 Reads plumb/filters.json, checks it against PLUMB_FILTERS in src/init.cpp,
 writes plumb/FILTERS.md, the filter list in README.md and the filter badge,
 and renders the README header, social preview,
-X banner, avatars and favicons with rsvg-convert. Rendering needs the
+X banner, emblem, avatars and favicons with rsvg-convert. The README header
+and social preview carry the emblem from plumb/assets/plumb-emblem.svg; its
+motto is drawn as outlines, so it needs no font. Rendering needs the
 Cinzel, IBM Plex Sans and IBM Plex Mono fonts installed. Fontconfig cannot
 pick weight 600 out of the variable Cinzel font, so make a static instance
 named "Cinzel SemiBold" (fonttools varLib.instancer, wght=600) first.
@@ -68,6 +70,32 @@ def lockup(mask_id, fill, x, center_y, font_size):
     )
 
 
+def wordmark(fill, x, center_y, font_size):
+    """The PLUMB wordmark alone, its cap height centered on center_y."""
+    cap = 0.70 * font_size
+    return (
+        f'<text x="{x:.1f}" y="{center_y + cap / 2:.1f}" fill="{fill}" font-family="Cinzel SemiBold, Cinzel" '
+        f'font-weight="600" font-size="{font_size}" letter-spacing="{0.26 * font_size:.1f}">PLUMB</text>'
+    )
+
+
+def emblem(mask_id, x, y, height):
+    """The emblem (shield, crosslets, NODUS VULT scroll), placed with its top left at x,y.
+
+    Returns the markup and the width it takes at that height."""
+    source = (ASSETS / "plumb-emblem.svg").read_text()
+    box = re.search(r'viewBox="([^"]+)"', source).group(1)
+    box_width, box_height = map(float, box.split()[2:])
+    inner = re.search(r"<svg[^>]*>(.*)</svg>", source, re.DOTALL).group(1)
+    inner = re.sub(r"<title>.*?</title>|<metadata>.*?</metadata>", "", inner, flags=re.DOTALL)
+    inner = inner.replace('id="m"', f'id="{mask_id}"').replace("url(#m)", f"url(#{mask_id})")
+    width = height * box_width / box_height
+    return (
+        f'<svg x="{x:.2f}" y="{y:.2f}" width="{width:.2f}" height="{height:.2f}" viewBox="{box}">{inner}</svg>',
+        width,
+    )
+
+
 def svg(width, height, body):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
@@ -84,12 +112,29 @@ def header(width, height, pad):
         f'<rect x="{width - pad - 430}" y="{height / 2 + 36}" width="430" height="1" fill="{SLATE}"/>')
 
 
+def readme_header():
+    """Emblem on the left, wordmark beside it, the supporting line on the right."""
+    width, height, pad = 1280, 320, 80
+    art, art_width = emblem("he", pad, 32, height - 64)
+    return svg(width, height,
+        f'<rect width="{width}" height="{height}" fill="{CHARCOAL}"/>'
+        + art
+        + wordmark(WHITE, pad + art_width + 44, height / 2, 84)
+        + f'<text x="{width - pad}" y="{height / 2 + 12}" fill="{PARCHMENT}" font-family="IBM Plex Sans" '
+        f'font-size="34" text-anchor="end">Every filter. Every release.</text>'
+        f'<rect x="{width - pad - 430}" y="{height / 2 + 36}" width="430" height="1" fill="{SLATE}"/>')
+
+
 def social():
+    """Emblem on the left, wordmark and the primary line beside it, the clone line below."""
+    art, art_width = emblem("se", 96, 76, 348)
+    text_x = 96 + art_width + 58
     return svg(1280, 640,
         f'<rect width="1280" height="640" fill="{PARCHMENT}"/>'
-        + lockup("s", RED, 96, 210, 112)
-        + f'<text x="96" y="390" fill="{CHARCOAL}" font-family="IBM Plex Sans" font-weight="500" '
-        f'font-size="52">Pure bitcoin. No spam tolerated.</text>'
+        + art
+        + wordmark(RED, text_x, 196, 112)
+        + f'<text x="{text_x:.1f}" y="330" fill="{CHARCOAL}" font-family="IBM Plex Sans" font-weight="500" '
+        f'font-size="50">Pure bitcoin. No spam tolerated.</text>'
         f'<rect x="96" y="460" width="1088" height="84" fill="{CHARCOAL}"/>'
         f'<text x="128" y="512" fill="{PARCHMENT}" font-family="IBM Plex Mono" font-size="30">'
         '$ git clone https://github.com/plumb-node/plumb</text>')
@@ -268,7 +313,7 @@ def main():
 
     PNG.mkdir(exist_ok=True)
     sources = {
-        "readme-header": header(1280, 320, 80),
+        "readme-header": readme_header(),
         "social-preview": social(),
         "x-banner": header(1500, 500, 140),
     }
@@ -276,6 +321,7 @@ def main():
         path = ASSETS / f"{name}.svg"
         path.write_text(text)
         render(path, PNG / f"{name}.png", int(re.search(r'width="(\d+)"', text).group(1)))
+    render(ASSETS / "plumb-emblem.svg", PNG / "emblem-896.png", 896)
     for size in (16, 32, 48):
         render(ASSETS / "plumb-favicon.svg", PNG / f"favicon-{size}.png", size, size)
     for size in (180, 400, 512):
