@@ -1625,14 +1625,14 @@ BOOST_AUTO_TEST_CASE(script_HasValidOps)
     BOOST_CHECK(!script.HasValidOps());
 }
 
-static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool dead_branches = true, const bool bare_envelopes = true) {
-    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches, /*verified_keys=*/nullptr, /*reached_normal_return=*/nullptr, bare_envelopes);
+static std::string DatacarrierBytesStr(const CScript &script, const size_t remaining_outputs = 0, const bool dead_branches = true, const bool bare_envelopes = true, const bool fake_multisig = true) {
+    auto dcb = script.DatacarrierBytes(remaining_outputs, nullptr, dead_branches, /*verified_keys=*/nullptr, /*reached_normal_return=*/nullptr, bare_envelopes, fake_multisig);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
 static std::string DatacarrierBytesStr(const CScript& script, const CScriptWitness& witness)
 {
-    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true);
+    auto dcb = script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true);
     return strprintf("%s+%s", dcb.first, dcb.second);
 }
 
@@ -1829,6 +1829,24 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_unproven_pubkeys)
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15)));
     // Uncompressed keys carry no more payload, so they are charged the same
     BOOST_CHECK_EQUAL("132+0", DatacarrierBytesStr(MultisigScript(1, 15, 65)));
+    // A plain 4-of-12 leaves eight keys unsigned, within the allowance
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(4, 12)));
+    // The widest real wallet since the fork: a 2-of-3 with a timelocked 2-of-3 and a 3-of-6
+    // behind it, 12 keys, spent with two signatures and empty ones for the branches it skips
+    {
+        CScript vault{MultisigScript(2, 3)};
+        vault << OP_NOTIF << 2;
+        for (int i{0}; i < 3; ++i) vault << std::vector<unsigned char>(33, 2);
+        vault << 3 << OP_CHECKMULTISIGVERIFY << 4014 << OP_CHECKSEQUENCEVERIFY << OP_ELSE << 3;
+        for (int i{0}; i < 6; ++i) vault << std::vector<unsigned char>(33, 3);
+        vault << 6 << OP_CHECKMULTISIG << OP_ENDIF;
+        CScriptWitness spend{MultisigWitness(2, vault)};
+        BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(vault, spend));
+    }
+    // -rejectfakemultisig=0 charges no keys at all
+    BOOST_CHECK_EQUAL("0+0", DatacarrierBytesStr(MultisigScript(1, 15), 0, /*dead_branches=*/true, /*bare_envelopes=*/true, /*fake_multisig=*/false));
+    // With -rejectbareenvelopes=0 a dropped key is still counted once, by the drop rule
+    BOOST_CHECK_EQUAL("0+35", DatacarrierBytesStr(CScript() << zeros(33) << OP_DROP, 0, /*dead_branches=*/true, /*bare_envelopes=*/false));
 
     // Naming signatures the spend does not offer earns nothing: OP_CHECKSIG in a branch that
     // never runs would otherwise buy off the whole count for one byte each
@@ -2136,7 +2154,7 @@ BOOST_AUTO_TEST_CASE(script_DataCarrierBytes_tapscript_unproven_pubkeys)
 /** Unproven-key bytes of a script, given the keys a signature verified against (or none observed). */
 static size_t UnprovenBytes(const CScript& script, const CScriptWitness& witness, const VerifiedKeys* verified = nullptr)
 {
-    return script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, verified, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true).first;
+    return script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, verified, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true).first;
 }
 
 /** The keys MultisigScript and MultiAScript use, numbered from first to last inclusive, from 1. */
@@ -2212,7 +2230,7 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys)
         live_witness.stack.emplace_back(live.begin(), live.end());
         BOOST_CHECK_EQUAL(0U, UnprovenBytes(live, live_witness));
         BOOST_CHECK_EQUAL(132U, UnprovenBytes(live, live_witness, &one));
-        BOOST_CHECK_EQUAL(0U, live.DatacarrierBytes(0, &live_witness, /*dead_branches=*/false, &one, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true).second);
+        BOOST_CHECK_EQUAL(0U, live.DatacarrierBytes(0, &live_witness, /*dead_branches=*/false, &one, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true).second);
         // The junk is 14 * 72 witness bytes that nothing charges.
     }
 
@@ -2293,9 +2311,9 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys)
     const CScript dropped{CScript() << std::vector<unsigned char>(33, 1) << std::vector<unsigned char>(33, 2) << OP_2DROP};
     VerifiedKeys first_dropped{KeysUpTo(1)};
     for (const VerifiedKeys* verified : std::initializer_list<const VerifiedKeys*>{nullptr, &none, &first_dropped}) {
-        const auto dcb{dropped.DatacarrierBytes(0, nullptr, /*dead_branches=*/false, verified, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true)};
+        const auto dcb{dropped.DatacarrierBytes(0, nullptr, /*dead_branches=*/false, verified, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true)};
         BOOST_CHECK_EQUAL(0U, dcb.first);
-        BOOST_CHECK_EQUAL(dropped.DatacarrierBytes(0, nullptr, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true).second, dcb.second);
+        BOOST_CHECK_EQUAL(dropped.DatacarrierBytes(0, nullptr, /*dead_branches=*/false, /*verified_keys=*/nullptr, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true).second, dcb.second);
     }
 
     // Tapscript k-of-n. Honest 2-of-3 is free, and near the wide end a witness claiming more
@@ -2318,6 +2336,29 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys)
     const CScript wide_a{MultiAScript(128, 128)};
     VerifiedKeys most{KeysUpTo(117, 32)};
     BOOST_CHECK_EQUAL(22U, UnprovenBytes(wide_a, TapscriptWitness(128, 128, wide_a), &most));
+}
+
+BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys_plumb_switches)
+{
+    // With Plumb's -rejectbareenvelopes=0 the drop rule counts only the last push before an OP_DROP,
+    // and the recount leaves that key out as the static count does, so it is not charged twice:
+    // eleven unverified keys are one over the allowance either way, and the dropped key is 35 bytes
+    // of data.
+    CScript script{CScript() << std::vector<unsigned char>(33, 2) << OP_DROP};
+    const CScript multisig{MultisigScript(1, 11)};
+    script.insert(script.end(), multisig.begin(), multisig.end());
+    const CScriptWitness witness{MultisigWitness(1, script)};
+    const VerifiedKeys none;
+    for (const bool bare_envelopes : {true, false}) {
+        const auto dcb{script.DatacarrierBytes(0, &witness, /*dead_branches=*/false, &none, /*reached_normal_return=*/nullptr, bare_envelopes, /*fake_multisig=*/true)};
+        BOOST_CHECK_EQUAL(dcb.first, 33U);
+        BOOST_CHECK_EQUAL(dcb.second, 35U);
+    }
+    // -rejectfakemultisig=0 charges no key, whatever verified
+    const CScript poc{DecoyMultisig(15)};
+    const CScriptWitness poc_witness{MultisigWitness(15, poc)};
+    BOOST_CHECK_GT(poc.DatacarrierBytes(0, &poc_witness, /*dead_branches=*/false, &none, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true).first, 0U);
+    BOOST_CHECK_EQUAL(poc.DatacarrierBytes(0, &poc_witness, /*dead_branches=*/false, &none, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/false).first, 0U);
 }
 
 BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
