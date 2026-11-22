@@ -3,9 +3,9 @@ import { rm } from 'fs/promises'
 import { bitcoinConfFile } from '../fileModels/bitcoin.conf'
 
 export const current = VersionInfo.of({
-  version: '#plumb:29.5.0.13:0',
+  version: '#plumb:29.5.1.14:0',
   releaseNotes: {
-    en_US: `Plumb v29.5.knots20260508.plumb13, from the signed release tarball. It fixes CVE-2026-117348, which let a peer stall the node with an orphan transaction and inv messages that repeat it, and changes no setting.`,
+    en_US: `Plumb v29.5.1.knots20260508.plumb14, from the signed release tarball. It is built on Bitcoin Knots 29.5.1 and carries its consensus rules. Upgrade promptly.`,
   },
   migrations: {
     up: async ({ effects }) => {},
