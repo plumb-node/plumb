@@ -590,17 +590,19 @@ public:
      *                           unproven-key charge is at least what the static count alone would give.
      *                           nullptr means nothing was observed, and the static count alone applies.
      */
-    std::pair<size_t, size_t> DatacarrierBytes(size_t remaining_outputs, const CScriptWitness* witness = nullptr, bool dead_branches = false, const VerifiedKeys* verified_keys = nullptr, bool* reached_normal_return = nullptr, bool bare_envelopes = false, bool fake_multisig = false) const;
+    std::pair<size_t, size_t> DatacarrierBytes(size_t remaining_outputs, const CScriptWitness* witness = nullptr, bool dead_branches = false, const VerifiedKeys* verified_keys = nullptr, bool* reached_normal_return = nullptr, bool bare_envelopes = false, bool fake_multisig = false, bool ln_revoke_leaf = false) const;
     /** A pointer passed as dead_branches would convert to bool, with no warning for a pointer variable; this makes it a compile error. */
     template <typename T>
-    std::pair<size_t, size_t> DatacarrierBytes(size_t remaining_outputs, const CScriptWitness* witness, T* dead_branches, const VerifiedKeys* verified_keys = nullptr, bool* reached_normal_return = nullptr, bool bare_envelopes = false, bool fake_multisig = false) const = delete;
+    std::pair<size_t, size_t> DatacarrierBytes(size_t remaining_outputs, const CScriptWitness* witness, T* dead_branches, const VerifiedKeys* verified_keys = nullptr, bool* reached_normal_return = nullptr, bool bare_envelopes = false, bool fake_multisig = false, bool ln_revoke_leaf = false) const = delete;
 
     /** The datacarrier bytes when the dead-branch count (the .second of DatacarrierBytes) is already
      *  known from an earlier call on the same script that reached its normal return: recompute only the
      *  unproven-pubkey part (.first) from verified_keys and reuse counted for the rest, skipping the
      *  dead-branch scan. Must not be called for a script that took an early return (unconditional
-     *  OP_RETURN, unparsable), where counted does not describe the script. */
-    std::pair<size_t, size_t> DatacarrierBytesReusing(size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, size_t counted, bool bare_envelopes, bool fake_multisig) const;
+     *  OP_RETURN, unparsable), where counted does not describe the script. first is the .first of that
+     *  call; whatever it holds besides the unproven-pubkey part does not depend on the keys and is
+     *  carried over. */
+    std::pair<size_t, size_t> DatacarrierBytesReusing(size_t remaining_outputs, const CScriptWitness* witness, const VerifiedKeys* verified_keys, size_t first, size_t counted, bool bare_envelopes, bool fake_multisig) const;
 
     void clear()
     {
@@ -622,6 +624,9 @@ struct DeadParts {
  * marks nothing, so a spendable script is never read as dead.
  */
 DeadParts FindDeadParts(const CScript& script);
+
+/** Whether the witness has the form of a taproot script path spend of LND's to_local revocation leaf, whose dropped key counts toward the -datacarriersize budget rather than as non-standard data */
+bool IsLnTaprootRevokeLeaf(const CScript& script, const CScriptWitness& witness);
 
 struct CScriptWitness
 {
