@@ -2346,35 +2346,35 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
     // honest input 0 with its own set adds nothing.
     {
         const CTransaction tx{make_tx({&honest_witness, &decoy_witness})};
-        BOOST_CHECK_EQUAL(0U, DatacarrierBytes(tx, view).first);
-        BOOST_CHECK_EQUAL(132U, DatacarrierBytes(tx, view, &verified_both).first);
+        BOOST_CHECK_EQUAL(0U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view)).first);
+        BOOST_CHECK_EQUAL(132U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &verified_both).first);
         // Sets crossed over the inputs: input 1 verified all of its keys, input 0 verified none of its own.
         const std::vector<VerifiedKeys> crossed{VerifiedKeys{}, KeysUpTo(15)};
-        BOOST_CHECK_EQUAL(0U, DatacarrierBytes(tx, view, &crossed).first);
+        BOOST_CHECK_EQUAL(0U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &crossed).first);
         const std::vector<VerifiedKeys> only_first_input{KeysUpTo(15), VerifiedKeys{}};
-        BOOST_CHECK_EQUAL(165U, DatacarrierBytes(tx, view, &only_first_input).first);
+        BOOST_CHECK_EQUAL(165U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &only_first_input).first);
     }
     // And in input 0 only, with the honest one after it.
     {
         const CTransaction tx{make_tx({&decoy_witness, &honest_witness})};
-        BOOST_CHECK_EQUAL(132U, DatacarrierBytes(tx, view, &verified_both).first);
+        BOOST_CHECK_EQUAL(132U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &verified_both).first);
     }
     // Two decoys add up.
     {
         const CTransaction tx{make_tx({&decoy_witness, &decoy_witness})};
-        BOOST_CHECK_EQUAL(264U, DatacarrierBytes(tx, view, &verified_both).first);
+        BOOST_CHECK_EQUAL(264U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &verified_both).first);
     }
     // Nothing observed (an empty vector) or a vector that does not have one set per input is not an
     // observation, whatever it holds, and the static count stands.
     {
         const CTransaction tx{make_tx({&honest_witness, &decoy_witness})};
         const std::vector<VerifiedKeys> empty;
-        BOOST_CHECK(DatacarrierBytes(tx, view, &empty) == DatacarrierBytes(tx, view));
+        BOOST_CHECK(DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &empty) == DatacarrierBytes(tx, view, DataOutputBytes(tx, &view)));
         const std::vector<VerifiedKeys> too_short{one};
-        BOOST_CHECK(DatacarrierBytes(tx, view, &too_short) == DatacarrierBytes(tx, view));
+        BOOST_CHECK(DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &too_short) == DatacarrierBytes(tx, view, DataOutputBytes(tx, &view)));
         const std::vector<VerifiedKeys> too_long{one, one, one};
-        BOOST_CHECK(DatacarrierBytes(tx, view, &too_long) == DatacarrierBytes(tx, view));
-        BOOST_CHECK_EQUAL(0U, DatacarrierBytes(tx, view, &empty).first);
+        BOOST_CHECK(DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &too_long) == DatacarrierBytes(tx, view, DataOutputBytes(tx, &view)));
+        BOOST_CHECK_EQUAL(0U, DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &empty).first);
     }
 
     // The cached recount (fill the cache from the static count, then recount reusing it) equals the
@@ -2390,7 +2390,8 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
         data_and_keys.insert(data_and_keys.end(), decoy_tail.begin(), decoy_tail.end());
         const CScriptWitness data_witness{MultisigWitness(15, data_and_keys)};
         // Guard: the added shape really does carry a non-zero dead-branch count for the recount to reuse.
-        BOOST_CHECK(DatacarrierBytes(make_tx({&data_witness}), view).second > 0);
+        const CTransaction data_tx{make_tx({&data_witness})};
+        BOOST_CHECK(DatacarrierBytes(data_tx, view, DataOutputBytes(data_tx, &view)).second > 0);
 
         const std::vector<std::vector<const CScriptWitness*>> shapes{
             {&honest_witness, &decoy_witness},
@@ -2412,8 +2413,8 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
             const CTransaction tx{make_tx(shape)};
             for (const auto& keys : key_sets) {
                 std::vector<DatacarrierInputCache> cache;
-                DatacarrierBytes(tx, view, /*verified_keys=*/nullptr, &cache); // populate from the static count
-                BOOST_CHECK(DatacarrierBytes(tx, view, &keys, &cache) == DatacarrierBytes(tx, view, &keys));
+                DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), /*verified_keys=*/nullptr, &cache); // populate from the static count
+                BOOST_CHECK(DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &keys, &cache) == DatacarrierBytes(tx, view, DataOutputBytes(tx, &view), &keys));
             }
         }
     }
