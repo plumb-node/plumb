@@ -2161,9 +2161,9 @@ static size_t UnprovenBytes(const CScript& script, const CScriptWitness& witness
 /** The keys MultisigScript and MultiAScript use, numbered from first to last inclusive, from 1. */
 static VerifiedKeys KeysUpTo(const int last, const size_t key_size = 33, const int first = 1)
 {
-    VerifiedKeys keys;
-    for (int i{first}; i <= last; ++i) keys.insert(std::vector<unsigned char>(key_size, i));
-    return keys;
+    VerifiedKeys verified;
+    for (int i{first}; i <= last; ++i) verified.keys.insert(std::vector<unsigned char>(key_size, i));
+    return verified;
 }
 
 /**
@@ -2201,8 +2201,8 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys)
     VerifiedKeys foreign{KeysUpTo(30, 33, 16)};
     BOOST_CHECK_EQUAL(165U, UnprovenBytes(poc, poc_witness, &foreign));
     VerifiedKeys off_by_one;
-    off_by_one.insert(std::vector<unsigned char>(32, 1));
-    off_by_one.insert(std::vector<unsigned char>(34, 1));
+    off_by_one.keys.insert(std::vector<unsigned char>(32, 1));
+    off_by_one.keys.insert(std::vector<unsigned char>(34, 1));
     BOOST_CHECK_EQUAL(165U, UnprovenBytes(poc, poc_witness, &off_by_one));
     // All keys verified is free, and so is a spend within the allowance of 10 unverified keys.
     VerifiedKeys all{KeysUpTo(15)};
@@ -2291,7 +2291,7 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys)
     for (int i{0}; i < 15; ++i) repeated << key;
     repeated << 15 << OP_CHECKMULTISIG;
     VerifiedKeys the_key;
-    the_key.insert(key);
+    the_key.keys.insert(key);
     BOOST_CHECK_EQUAL(132U, UnprovenBytes(repeated, MultisigWitness(1, repeated)));
     BOOST_CHECK_EQUAL(132U, UnprovenBytes(repeated, MultisigWitness(1, repeated), &the_key));
     CScript repeated_decoy{CScript() << OP_1 << OP_NOTIF};
@@ -2360,6 +2360,100 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys_plumb_switches)
     const CScriptWitness poc_witness{MultisigWitness(15, poc)};
     BOOST_CHECK_GT(poc.DatacarrierBytes(0, &poc_witness, /*dead_branches=*/false, &none, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/true).first, 0U);
     BOOST_CHECK_EQUAL(poc.DatacarrierBytes(0, &poc_witness, /*dead_branches=*/false, &none, /*reached_normal_return=*/nullptr, /*bare_envelopes=*/true, /*fake_multisig=*/false).first, 0U);
+}
+
+BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_signatures)
+{
+    // Plumb records every signature that verified, for -rejectunverifiedwitness, in a set apart from the
+    // keys. A witness script can push a signature as long as a key and check it against a key the witness
+    // gives. The unproven-key count must count such a push as Knots does, which records keys alone: a
+    // signature found among the keys would pass for a proven key. Each script ends in three checks that
+    // take key and signature from the witness, so the static count, capped at the three signatures the
+    // witness shows, finds nothing.
+    const auto signature_pushes{[](size_t size, int n, bool in_dead_checks) {
+        std::vector<std::vector<unsigned char>> pushes;
+        for (int i{0}; i < n; ++i) {
+            pushes.emplace_back(size, 0x30);
+            pushes.back()[2] = i;
+        }
+        CScript script;
+        // A 32 byte push is a key only right before a signature check, which in P2WSH would refuse it
+        // as a key, so the copy the count reads sits behind a branch the spend does not take.
+        if (in_dead_checks) {
+            script << OP_IF;
+            for (const auto& push : pushes) script << push << OP_CHECKSIG;
+            script << OP_ENDIF;
+        }
+        for (const auto& push : pushes) script << push << OP_SWAP << OP_CHECKSIGVERIFY;
+        script << OP_CHECKSIGVERIFY << OP_CHECKSIGVERIFY << OP_CHECKSIG;
+        CScriptWitness witness;
+        for (int i{0}; i < 3; ++i) {
+            witness.stack.emplace_back(72, 0x30);
+            witness.stack.emplace_back(33, 0x02);
+        }
+        for (int i{0}; i < n; ++i) witness.stack.emplace_back(33, 0x03); // the keys the pushes verify against
+        if (in_dead_checks) witness.stack.emplace_back();
+        witness.stack.emplace_back(script.begin(), script.end());
+        // What the recorder keeps: the witness keys and every signature, the pushes among them
+        VerifiedKeys verified{{std::vector<unsigned char>(33, 0x02), std::vector<unsigned char>(33, 0x03)}, {std::vector<unsigned char>(72, 0x30)}};
+        for (const auto& push : pushes) verified.sigs.insert(push);
+        // The same bytes with the signatures filed among the keys, which plumb12 to plumb14 did
+        VerifiedKeys mixed{verified};
+        mixed.keys.insert(verified.sigs.begin(), verified.sigs.end());
+        return std::tuple{script, witness, verified, mixed};
+    }};
+    for (const auto& [size, n, dead, expected] : std::vector<std::tuple<size_t, int, bool, size_t>>{
+             {33, 13, false, 99},    // 13 x 33 - 330
+             {33, 10, false, 0},     // within the allowance
+             {65, 6, false, 60},     // 6 x 65 - 330
+             {32, 13, true, 86},     // 13 x 32 - 330
+         }) {
+        const auto [script, witness, verified, mixed] = signature_pushes(size, n, dead);
+        BOOST_CHECK_EQUAL(0U, UnprovenBytes(script, witness));
+        BOOST_CHECK_EQUAL(expected, UnprovenBytes(script, witness, &verified));
+        BOOST_CHECK_EQUAL(0U, UnprovenBytes(script, witness, &mixed));
+        // No key verified against: the count is the same, the pushes were never keys
+        const VerifiedKeys none;
+        BOOST_CHECK_EQUAL(expected, UnprovenBytes(script, witness, &none));
+    }
+
+    // A real key in the same script, verified by a real signature, is still credited: three keys pushed
+    // and checked, then eleven signatures pushed and the same three checks from the witness. Only the
+    // eleven count, 11 x 33 - 330 = 33; were the three keys not credited, 14 x 33 - 330 = 132.
+    {
+        CScript script;
+        CScriptWitness witness;
+        VerifiedKeys verified;
+        for (int i{0}; i < 3; ++i) {
+            const std::vector<unsigned char> key(33, 0x40 + i), sig(72, 0x30 + i);
+            script << key << OP_CHECKSIGVERIFY;
+            witness.stack.push_back(sig);
+            verified.keys.insert(key);
+            verified.sigs.insert(sig);
+        }
+        for (int i{0}; i < 11; ++i) {
+            std::vector<unsigned char> push(33, 0x30), key(33, 0x03);
+            push[2] = key[2] = i;
+            script << push << OP_SWAP << OP_CHECKSIGVERIFY;
+            witness.stack.push_back(key);
+            verified.keys.insert(key);
+            verified.sigs.insert(push);
+        }
+        script << OP_CHECKSIGVERIFY << OP_CHECKSIGVERIFY << OP_CHECKSIG;
+        for (int i{0}; i < 3; ++i) {
+            const std::vector<unsigned char> key(33, 0x02), sig(72, 0x50 + i);
+            witness.stack.push_back(sig);
+            witness.stack.push_back(key);
+            verified.keys.insert(key);
+            verified.sigs.insert(sig);
+        }
+        witness.stack.emplace_back(script.begin(), script.end());
+        BOOST_CHECK_EQUAL(0U, UnprovenBytes(script, witness));
+        BOOST_CHECK_EQUAL(33U, UnprovenBytes(script, witness, &verified));
+        VerifiedKeys unsigned_keys{verified};
+        for (int i{0}; i < 3; ++i) unsigned_keys.keys.erase(std::vector<unsigned char>(33, 0x40 + i));
+        BOOST_CHECK_EQUAL(132U, UnprovenBytes(script, witness, &unsigned_keys));
+    }
 }
 
 BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_tx_verified_keys)
@@ -2536,27 +2630,46 @@ BOOST_AUTO_TEST_CASE(key_recording_signature_checker)
         BOOST_CHECK_EQUAL(answer, recorder.CheckSchnorrSignature(sig, xonly, SigVersion::TAPSCRIPT, execdata));
         BOOST_CHECK_EQUAL(answer, recorder.CheckLockTime(CScriptNum{1}));
         BOOST_CHECK_EQUAL(answer, recorder.CheckSequence(CScriptNum{1}));
-        // The keys, and the signature that verified against them (the same bytes both times here)
-        BOOST_CHECK_EQUAL(keys.size(), answer ? 3U : 0U);
-        if (answer) {
-            BOOST_CHECK(keys.count(key));
-            BOOST_CHECK(keys.count(xonly));
-            BOOST_CHECK(keys.count(sig));
-        }
+        // The keys, and apart from them the signature that verified against them (the same bytes both
+        // times here). A signature is never among the keys.
+        BOOST_CHECK(keys == (answer ? VerifiedKeys{{key, xonly}, {sig}} : VerifiedKeys{}));
+        BOOST_CHECK_EQUAL(keys.count(key), answer);
+        BOOST_CHECK_EQUAL(keys.count(xonly), answer);
+        BOOST_CHECK_EQUAL(keys.count(sig), answer);
+        BOOST_CHECK(!keys.keys.contains(sig));
     }
 
-    // Past the cap further keys go unnoticed, but every answer is still passed through. The cap counts
-    // signatures and keys together; here one signature verifies against every key.
+    // A signature the size of a key, verified, is a signature: the unproven-key count never finds it
+    for (const size_t size : {32U, 33U, 65U}) {
+        FixedAnswerChecker inner{true};
+        VerifiedKeys keys;
+        KeyRecordingSignatureChecker recorder{inner, keys};
+        const std::vector<unsigned char> keysized(size, 0x30);
+        BOOST_CHECK(recorder.CheckECDSASignature(keysized, key, code, SigVersion::WITNESS_V0));
+        BOOST_CHECK(keys == (VerifiedKeys{{key}, {keysized}}));
+    }
+
+    // Past the cap further keys or signatures go unnoticed, but every answer is still passed through.
+    // Here one signature verifies against every key, then one key against every signature.
     FixedAnswerChecker inner{true};
     VerifiedKeys keys;
     KeyRecordingSignatureChecker recorder{inner, keys};
-    for (unsigned int i{0}; i < 2 * MAX_PUBKEYS_PER_MULTI_A + 10; ++i) {
-        std::vector<unsigned char> k(33, 2);
-        k[1] = i & 0xff;
-        k[2] = i >> 8;
-        BOOST_CHECK(recorder.CheckECDSASignature(sig, k, code, SigVersion::WITNESS_V0));
+    const auto numbered{[](size_t size, unsigned char fill, unsigned int i) {
+        std::vector<unsigned char> v(size, fill);
+        v[1] = i & 0xff;
+        v[2] = i >> 8;
+        return v;
+    }};
+    for (unsigned int i{0}; i < MAX_PUBKEYS_PER_MULTI_A + 10; ++i) {
+        BOOST_CHECK(recorder.CheckECDSASignature(sig, numbered(33, 2, i), code, SigVersion::WITNESS_V0));
     }
-    BOOST_CHECK_EQUAL(keys.size(), size_t{2 * MAX_PUBKEYS_PER_MULTI_A});
+    BOOST_CHECK_EQUAL(keys.keys.size(), size_t{MAX_PUBKEYS_PER_MULTI_A});
+    BOOST_CHECK_EQUAL(keys.sigs.size(), 1U);
+    for (unsigned int i{0}; i < MAX_PUBKEYS_PER_MULTI_A + 10; ++i) {
+        BOOST_CHECK(recorder.CheckSchnorrSignature(numbered(64, 1, i), xonly, SigVersion::TAPSCRIPT, execdata));
+    }
+    BOOST_CHECK_EQUAL(keys.keys.size(), size_t{MAX_PUBKEYS_PER_MULTI_A});
+    BOOST_CHECK_EQUAL(keys.sigs.size(), size_t{MAX_PUBKEYS_PER_MULTI_A});
 
     // The signature hash rules reach the wrapped checker as given, and a key is noted under either set.
     for (const SighashRules accepted : {SighashRules::LEGACY, SighashRules::UNIFIED}) {
@@ -2567,7 +2680,7 @@ BOOST_AUTO_TEST_CASE(key_recording_signature_checker)
             const bool expected{asked == accepted};
             BOOST_CHECK_EQUAL(expected, rules_recorder.CheckECDSASignature(sig, key, code, SigVersion::WITNESS_V0, asked));
             BOOST_CHECK_EQUAL(expected, rules_recorder.CheckSchnorrSignature(sig, xonly, SigVersion::TAPSCRIPT, execdata, nullptr, asked));
-            BOOST_CHECK_EQUAL(rules_keys.size(), expected ? 3U : 0U);
+            BOOST_CHECK(rules_keys == (expected ? VerifiedKeys{{key, xonly}, {sig}} : VerifiedKeys{}));
         }
     }
 }

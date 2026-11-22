@@ -38,8 +38,25 @@ static const int MAX_PUBKEYS_PER_MULTISIG = 20;
 /** The limit of keys in OP_CHECKSIGADD-based scripts. It is due to the stack limit in BIP342. */
 static constexpr unsigned int MAX_PUBKEYS_PER_MULTI_A = 999;
 
-/** The public keys a non-empty signature verified against while one input was executed, and those signatures. */
-using VerifiedKeys = std::set<std::vector<unsigned char>>;
+/**
+ * The public keys a non-empty signature verified against while one input was executed, and, in a set
+ * of their own, those signatures.
+ *
+ * The unproven-key count credits a push whose bytes are in keys, and looks nowhere else. It takes any
+ * 33 or 65 byte push for a key, and a 32 byte one before a signature check, and a witness script can
+ * push a signature of those sizes and have it verified. Found among the keys, such a push would pass
+ * for a proven key and its bytes would escape the count.
+ */
+struct VerifiedKeys {
+    std::set<std::vector<unsigned char>> keys;
+    std::set<std::vector<unsigned char>> sigs;
+
+    /** Whether an item is a key or a signature that verified: what -rejectunverifiedwitness looks a
+     *  witness item up in. Spelled like std::set::count, which this type was before. */
+    bool count(const std::vector<unsigned char>& item) const { return keys.contains(item) || sigs.contains(item); }
+
+    bool operator==(const VerifiedKeys&) const = default;
+};
 
 // Maximum script length in bytes
 static const int MAX_SCRIPT_SIZE = 10000;
@@ -586,7 +603,7 @@ public:
     /**
      * @param[in] verified_keys  Public keys (as pushed: 33/65 bytes ECDSA, 32 bytes x-only) that a non-empty
      *                           signature verified against while this spend ran through the policy script
-     *                           check. When given, a key earns credit only if it is in the set, and the
+     *                           check. When given, a key earns credit only if it is among its keys, and the
      *                           unproven-key charge is at least what the static count alone would give.
      *                           nullptr means nothing was observed, and the static count alone applies.
      */

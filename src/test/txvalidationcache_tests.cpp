@@ -504,10 +504,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_records_verified_keys, TestChain100Setup)
         std::vector<VerifiedKeys> keys;
         BOOST_CHECK(CheckInputScripts(tx, state, &coins, flags, true, false, txdata, cache, nullptr, {}, &keys));
         BOOST_REQUIRE_EQUAL(keys.size(), 1U);
-        // The key and the signature that verified against it
-        BOOST_CHECK_EQUAL(keys[0].size(), 2U);
-        BOOST_CHECK(keys[0].count(key_bytes));
-        BOOST_CHECK(keys[0].count(sig));
+        // The key, and apart from it the signature that verified against it
+        BOOST_CHECK(keys[0] == (VerifiedKeys{{key_bytes}, {sig}}));
     }
 
     // Queued checks are block validation's, which never records.
@@ -541,10 +539,10 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_records_verified_keys, TestChain100Setup)
         TxValidationState state;
         PrecomputedTransactionData txdata;
         // stale content must not survive
-        std::vector<VerifiedKeys> keys{VerifiedKeys{std::vector<unsigned char>(33, 2)}, VerifiedKeys{}};
+        std::vector<VerifiedKeys> keys{VerifiedKeys{{std::vector<unsigned char>(33, 2)}, {}}, VerifiedKeys{}};
         BOOST_CHECK(CheckInputScripts(tx, state, &coins, flags, true, cache_full_script_store, txdata, cache, nullptr, {}, &keys));
         BOOST_REQUIRE_EQUAL(keys.size(), 1U);
-        BOOST_CHECK(keys[0] == (VerifiedKeys{key_bytes, sig}));
+        BOOST_CHECK(keys[0] == (VerifiedKeys{{key_bytes}, {sig}}));
         BOOST_CHECK_EQUAL(queued_without_recorder(), 0U);
     }
 
@@ -582,7 +580,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_records_verified_keys, TestChain100Setup)
             BOOST_CHECK_EQUAL(CheckInputScripts(utx, state, &coins, uflags, true, false, txdata, cache, nullptr, {}, &keys), unified);
             if (unified) {
                 BOOST_REQUIRE_EQUAL(keys.size(), 1U);
-                BOOST_CHECK(keys[0] == (VerifiedKeys{key_bytes, usig}));
+                BOOST_CHECK(keys[0] == (VerifiedKeys{{key_bytes}, {usig}}));
             }
         }
     }
@@ -702,7 +700,7 @@ BOOST_FIXTURE_TEST_CASE(plumb_unverified_witness_count, BasicTestingSetup)
         BOOST_CHECK_EQUAL(rc.second, st.second);
         return rc.first - st.first;
     }};
-    const VerifiedKeys verified{key, sig};
+    const VerifiedKeys verified{{key}, {sig}};
     const size_t allowance{UNVERIFIED_WITNESS_ALLOWANCE};
     const bool saved{::g_reject_unverified_witness};
     ::g_reject_unverified_witness = true;
@@ -712,7 +710,7 @@ BOOST_FIXTURE_TEST_CASE(plumb_unverified_witness_count, BasicTestingSetup)
         BOOST_CHECK_EQUAL(added(kind, junk(allowance + 1), verified), 1U);
         BOOST_CHECK_EQUAL(added(kind, junk(13 * 64), verified), 13 * 64 - allowance);
         // A signature no check verified is an item like any other
-        BOOST_CHECK_EQUAL(added(kind, junk(allowance), VerifiedKeys{key}), sig.size());
+        BOOST_CHECK_EQUAL(added(kind, junk(allowance), VerifiedKeys{{key}, {}}), sig.size());
         // A copy of a verified key is used, wherever it sits
         BOOST_CHECK_EQUAL(added(kind, {key, key, key, key}, verified), 0U);
         // Empty items and small numbers fit in the allowance
@@ -810,6 +808,148 @@ BOOST_FIXTURE_TEST_CASE(plumb_unverified_witness_mempool, TestChain100Setup)
         }
     }
     ::g_reject_unverified_witness = saved;
+}
+
+BOOST_FIXTURE_TEST_CASE(plumb_signature_push_is_no_key, TestChain100Setup)
+{
+    // A P2WSH script pushes thirteen 33 byte ECDSA signatures and checks each against a key from the
+    // witness, recovered from the signature and the signature hash (BIP143 does not commit to a key
+    // taken from the stack). Three checks with key and signature from the witness follow, which cap
+    // the static count at three provable keys, so only the recount can see the pushes. Knots records
+    // only keys and counts the thirteen pushes as unproven keys: 13 x 33 - 330 = 99 bytes. Plumb must
+    // count the same, though it records the signatures for -rejectunverifiedwitness.
+    const CScript p2pk{CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG};
+    constexpr int PUSHES{13};
+    // A strict DER signature of 33 bytes with its sighash byte: r one byte, s 25 bytes and low
+    const auto der{[](unsigned char r, const std::vector<unsigned char>& s) {
+        std::vector<unsigned char> sig{0x30, 30, 0x02, 1, r, 0x02, 25};
+        sig.insert(sig.end(), s.begin(), s.end());
+        sig.push_back(SIGHASH_ALL);
+        return sig;
+    }};
+    std::vector<std::vector<unsigned char>> s_values;
+    for (int i{0}; i < PUSHES; ++i) {
+        std::vector<unsigned char> s(25, static_cast<unsigned char>(0x11 * (i + 1)));
+        s[0] = 0x10 + i;
+        s_values.push_back(s);
+    }
+    // The smallest r that is the x coordinate of a point, found by recovering a key with it
+    unsigned char r{0};
+    for (unsigned char x{1}; x < 0x80 && !r; ++x) {
+        std::vector<unsigned char> compact(CPubKey::COMPACT_SIGNATURE_SIZE, 0);
+        compact[0] = 27 + 4;
+        compact[32] = x;
+        compact[64] = 1;
+        CPubKey q;
+        if (q.RecoverCompact(uint256::ONE, compact)) r = x;
+    }
+    BOOST_REQUIRE(r);
+    std::vector<std::vector<unsigned char>> pushes;
+    CScript sigkey;
+    for (const auto& s : s_values) {
+        pushes.push_back(der(r, s));
+        BOOST_REQUIRE_EQUAL(pushes.back().size(), 33U);
+        sigkey << pushes.back() << OP_SWAP << OP_CHECKSIGVERIFY;
+    }
+    sigkey << OP_CHECKSIGVERIFY << OP_CHECKSIGVERIFY << OP_CHECKSIG;
+    std::vector<CKey> tail_keys, real_keys;
+    for (int i{0}; i < 3; ++i) tail_keys.push_back(GenerateRandomKey());
+    // Its neighbor with real keys: thirteen keys pushed, each checked against a real signature
+    CScript real;
+    for (int i{0}; i < PUSHES; ++i) {
+        real_keys.push_back(GenerateRandomKey());
+        real << ToByteVector(real_keys.back().GetPubKey()) << (i + 1 < PUSHES ? OP_CHECKSIGVERIFY : OP_CHECKSIG);
+    }
+
+    const std::vector<CScript> scripts{p2pk, real, sigkey};
+    CMutableTransaction fund;
+    fund.version = 2;
+    fund.vin.emplace_back(COutPoint{m_coinbase_txns[0]->GetHash(), 0});
+    for (const CScript& script : scripts) fund.vout.emplace_back(10 * COIN, GetScriptForDestination(WitnessV0ScriptHash(script)));
+    std::vector<unsigned char> fund_sig;
+    BOOST_REQUIRE(coinbaseKey.Sign(SignatureHash(p2pk, fund, 0, SIGHASH_ALL, 0, SigVersion::BASE), fund_sig));
+    fund_sig.push_back(SIGHASH_ALL);
+    fund.vin[0].scriptSig << fund_sig;
+    BOOST_REQUIRE_EQUAL(CreateAndProcessBlock({fund}, p2pk).vtx.size(), 2U);
+
+    std::vector<CTransactionRef> spends;
+    std::vector<std::vector<unsigned char>> recovered;
+    for (size_t n{0}; n < scripts.size(); ++n) {
+        const CScript& script{scripts[n]};
+        CMutableTransaction spend;
+        spend.version = 2;
+        spend.vin.emplace_back(COutPoint{fund.GetHash(), uint32_t(n)});
+        spend.vout.emplace_back(9 * COIN, GetScriptForDestination(WitnessV0KeyHash(coinbaseKey.GetPubKey())));
+        const uint256 hash{SignatureHash(script, spend, 0, SIGHASH_ALL, 10 * COIN, SigVersion::WITNESS_V0)};
+        const auto sign{[&](const CKey& key) {
+            std::vector<unsigned char> sig;
+            BOOST_REQUIRE(key.Sign(hash, sig));
+            sig.push_back(SIGHASH_ALL);
+            return sig;
+        }};
+        auto& stack{spend.vin[0].scriptWitness.stack};
+        if (n == 0) {
+            stack.push_back(sign(coinbaseKey));
+        } else if (n == 1) {
+            for (int i{PUSHES - 1}; i >= 0; --i) stack.push_back(sign(real_keys[i]));
+        } else {
+            // The bottom pair is the last check's
+            for (int i{2}; i >= 0; --i) {
+                stack.push_back(sign(tail_keys[i]));
+                stack.push_back(ToByteVector(tail_keys[i].GetPubKey()));
+            }
+            // The key for each pushed signature, the first one's on top
+            for (int i{PUSHES - 1}; i >= 0; --i) {
+                std::vector<unsigned char> compact(CPubKey::COMPACT_SIGNATURE_SIZE, 0);
+                compact[0] = 27 + 4;
+                compact[32] = r;
+                std::copy(s_values[i].begin(), s_values[i].end(), compact.end() - 25);
+                CPubKey q;
+                BOOST_REQUIRE(q.RecoverCompact(hash, compact));
+                BOOST_REQUIRE(q.Verify(hash, std::vector<unsigned char>(pushes[i].begin(), pushes[i].end() - 1)));
+                stack.push_back(ToByteVector(q));
+                recovered.push_back(stack.back());
+            }
+        }
+        stack.emplace_back(script.begin(), script.end());
+        spends.push_back(MakeTransactionRef(spend));
+    }
+
+    LOCK(cs_main);
+    // The recorder keeps the pushed signatures apart from the keys they verified against
+    {
+        TxValidationState state;
+        PrecomputedTransactionData txdata;
+        std::vector<VerifiedKeys> keys;
+        BOOST_REQUIRE(CheckInputScripts(*spends[2], state, m_node.chainman->ActiveChainstate().CoinsTip(), STANDARD_SCRIPT_VERIFY_FLAGS, true, false, txdata, m_node.chainman->m_validation_cache, nullptr, {}, &keys));
+        BOOST_REQUIRE_EQUAL(keys.size(), 1U);
+        BOOST_CHECK_EQUAL(keys[0].keys.size(), size_t{PUSHES + 3});
+        BOOST_CHECK_EQUAL(keys[0].sigs.size(), size_t{PUSHES + 3});
+        for (const auto& q : recovered) BOOST_CHECK(keys[0].keys.contains(q));
+        for (const auto& push : pushes) {
+            BOOST_CHECK(keys[0].sigs.contains(push));
+            BOOST_CHECK(!keys[0].keys.contains(push));
+        }
+    }
+
+    // Refused for the unproven-key rule wherever it runs, whatever -rejectunverifiedwitness is: every
+    // witness item is a key or a signature that verified. The neighbors are accepted.
+    const bool saved{::g_reject_fake_multisig}, saved_witness{::g_reject_unverified_witness};
+    for (const auto& [fake_multisig, unverified_witness] : {std::pair{true, true}, {true, false}, {false, true}, {false, false}}) {
+        ::g_reject_fake_multisig = fake_multisig;
+        ::g_reject_unverified_witness = unverified_witness;
+        for (size_t n{0}; n < spends.size(); ++n) {
+            const MempoolAcceptResult res{AcceptToMemoryPool(m_node.chainman->ActiveChainstate(), spends[n], GetTime(), /*bypass_limits=*/false, /*test_accept=*/true)};
+            if (n == 2 && fake_multisig) {
+                BOOST_CHECK_MESSAGE(res.m_result_type == MempoolAcceptResult::ResultType::INVALID, "case " << n << " " << fake_multisig << unverified_witness);
+                BOOST_CHECK_EQUAL(res.m_state.GetRejectReason(), "txn-datacarrier-exceeded");
+            } else {
+                BOOST_CHECK_MESSAGE(res.m_result_type == MempoolAcceptResult::ResultType::VALID, "case " << n << " " << fake_multisig << unverified_witness << " " << res.m_state.ToString());
+            }
+        }
+    }
+    ::g_reject_fake_multisig = saved;
+    ::g_reject_unverified_witness = saved_witness;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

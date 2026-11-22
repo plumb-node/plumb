@@ -988,8 +988,9 @@ static size_t UnprovenPubkeyBytes(const CScript& script, const CScriptWitness* w
         const int count{MultisigCount(opcode, push_data)};
         const int a_count{MultiACount(opcode, push_data)};
         // Exactly these bytes were checked against a signature that verified. No other key, and no
-        // other bytes of the same key, can borrow it.
-        const bool is_verified{verified_keys && (is_pubkey || is_xonly) && verified_keys->count(push_data)};
+        // other bytes of the same key, can borrow it. Only the keys are searched: a pushed signature
+        // that verified is no key, whatever its size.
+        const bool is_verified{verified_keys && (is_pubkey || is_xonly) && verified_keys->keys.contains(push_data)};
         bool is_key{false};
 
         if (inside_noop) {

@@ -461,10 +461,10 @@ public:
  * Every result is passed through untouched. It only ever sees keys whose signature the wrapped
  * checker accepted, and an empty signature is never accepted, so a key lands in the set only if a
  * real signature was checked against exactly those bytes during this execution. The signature
- * itself is recorded beside its key, so the witness items a verified check used can be told from
- * the ones it never touched (-rejectunverifiedwitness). A signature never matches a key the
- * unproven-key count looks up: DER starts with 0x30, which no key encoding does, and a Schnorr
- * signature is 64 or 65 bytes, which no key in a witness script is. Wrap the
+ * itself is recorded too, so the witness items a verified check used can be told from the ones it
+ * never touched (-rejectunverifiedwitness). It goes in a set apart from the keys: the unproven-key
+ * count looks pushes up among the keys alone, since a script can push a signature as long as a key
+ * and have it verified (see VerifiedKeys). Wrap the
  * outermost checker, so a signature-cache hit in the one beneath still records. The signature hash
  * rules are passed on as given, so a signature accepted under either set of rules is recorded.
  *
@@ -473,20 +473,18 @@ public:
  */
 class KeyRecordingSignatureChecker : public DeferringSignatureChecker
 {
-    VerifiedKeys& m_keys;
+    VerifiedKeys& m_verified;
 
     void Record(Span<const unsigned char> sig, Span<const unsigned char> key) const
     {
-        // Past the cap further keys go unrecorded, which can only make a spend look less proven.
-        // The cap counts a signature and its key, so it is twice the key limit.
-        if (m_keys.size() < 2 * MAX_PUBKEYS_PER_MULTI_A) {
-            m_keys.emplace(key.begin(), key.end());
-            m_keys.emplace(sig.begin(), sig.end());
-        }
+        // Past either cap further keys or signatures go unrecorded, which can only make a spend look
+        // less proven.
+        if (m_verified.keys.size() < MAX_PUBKEYS_PER_MULTI_A) m_verified.keys.emplace(key.begin(), key.end());
+        if (m_verified.sigs.size() < MAX_PUBKEYS_PER_MULTI_A) m_verified.sigs.emplace(sig.begin(), sig.end());
     }
 
 public:
-    KeyRecordingSignatureChecker(const BaseSignatureChecker& checker, VerifiedKeys& keys) : DeferringSignatureChecker(checker), m_keys(keys) {}
+    KeyRecordingSignatureChecker(const BaseSignatureChecker& checker, VerifiedKeys& verified) : DeferringSignatureChecker(checker), m_verified(verified) {}
 
     bool CheckECDSASignature(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, SighashRules sighash_rules = SighashRules::LEGACY) const override
     {
