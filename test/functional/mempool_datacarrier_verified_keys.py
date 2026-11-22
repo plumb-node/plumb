@@ -97,7 +97,9 @@ WITNESS_CAP = 1650  # -maxscriptsize at Knots defaults, for the whole witness st
 # The fork and RDTS are active from this height, inside the warmup, with an expiry far ahead.
 FORK_HEIGHT = 100
 # Knots policy defaults (the framework adds -corepolicy), on a chain past the fork with RDTS in force.
-NODE_ARGS = ["-corepolicy=0", f"-testactivationheight=blake2b@{FORK_HEIGHT}", "-rdtsexpiry=2000000000"]
+# The decoys' junk items are dropped unverified, which Plumb's -rejectunverifiedwitness would add to the
+# exact charges here; that rule has its own test (mempool_datacarrier_unverified_witness.py).
+NODE_ARGS = ["-corepolicy=0", f"-testactivationheight=blake2b@{FORK_HEIGHT}", "-rdtsexpiry=2000000000", "-rejectunverifiedwitness=0"]
 WARMUP_BLOCKS = 310
 
 
