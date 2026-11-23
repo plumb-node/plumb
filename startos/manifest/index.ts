@@ -16,9 +16,9 @@ export const manifest = setupManifest({
       source: {
         dockerBuild: {
           buildArgs: {
-            PLUMB_VERSION: '29.5.1.knots20260508.plumb14',
+            PLUMB_VERSION: '29.5.1.knots20260508.plumb15',
             PLUMB_SHA256SUMS:
-              '93b63f284a899e812693f7d1d0532aa86af898efa872d1fa4a202614106c9056',
+              '55b1344a67a5a3827ed076507bf8097f4bbe0bed395065b31f8e1dbf38bbaeee',
           },
         },
       },
