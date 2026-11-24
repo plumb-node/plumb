@@ -19,8 +19,9 @@ export const current = VersionInfo.of({
       ['^#knotsrdts:29.3']: {
         up: async ({ effects }) => {},
       },
-      // Bitcoin Knots on the BLAKE2b chain (Retropex's #knots flavor). Same
-      // chain, same data directory and bitcoin.conf, so nothing to migrate.
+      // Bitcoin Knots on the BLAKE2b chain (Retropex's #knots flavor). The
+      // switch leaves the data volume and bitcoin.conf where they are, so
+      // there is nothing to migrate here.
       // 29.4.1:1 is the first BLAKE2b build; #knots:29.4 builds before it
       // had the RDTS consent gate and may hold the legacy chain.
       ['>=#knots:29.4.1:1 <#knots:30.0:0']: {

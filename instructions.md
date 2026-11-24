@@ -13,7 +13,7 @@
 - An embedded **i2pd** sidecar that brings up I2P transport automatically — your node accepts inbound peers over I2P out of the box, with a separate **I2P Daemon Console** interface available when you turn the i2pd web console on.
 - An automatic Tor outbound proxy (your node reaches `.onion` peers without configuration); add a `.onion` to the Peer Interface to advertise yourself and accept inbound Tor connections too.
 - Disk-aware defaults: on disks smaller than 900 GB the package enables pruning and disables `txindex`; on larger disks you get a full archival node. The transition is transparent — pruned nodes route RPC through a small `btc-rpc-proxy` sidecar so port 8332 always serves RPC the same way.
-- Shared `bitcoind` package id with Bitcoin Knots on the BLAKE2b chain, so you can switch between the two without re-syncing. Switching from Bitcoin Core or a pre-fork Knots is blocked: those follow a different chain.
+- Shared `bitcoind` package id with Bitcoin Knots on the BLAKE2b chain, so StartOS can switch between the two. A switch from Leo Haf's Knots package 29.5.1:2 keeps the chain, with no re-sync. Switching from Bitcoin Core or a pre-fork Knots is blocked: those follow a different chain.
 
 ## Getting set up
 

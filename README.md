@@ -9,6 +9,6 @@
 - **Upstream repo:** <https://github.com/plumb-node/plumb>
 - **Wrapper source:** branch [`startos`](https://github.com/plumb-node/plumb/tree/startos) of the Plumb repo, based on Leo Haf's [knots-startos](https://github.com/Horizon-btc/knots-startos), release `v29.5.knots20260508`
 
-This package shares the `bitcoind` package ID with the Bitcoin Knots package for the BLAKE2b chain, so you can switch between the two while keeping the blockchain data and dependent service connections.
+This package shares the `bitcoind` package ID with the Bitcoin Knots package for the BLAKE2b chain, so StartOS can switch between the two. A switch from that package at version 29.5.1:2 keeps the blockchain data and settings.
 
 The image takes `bitcoind` and `bitcoin-cli` from the x86_64 tarball of the Plumb release named in the manifest. The build stops unless the release's `SHA256SUMS` has the sha256 pinned in the manifest and a good signature from the pinned Plumb release key in `assets/plumb-keys/`, and the tarball matches `SHA256SUMS`.
