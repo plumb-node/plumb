@@ -14,9 +14,9 @@ your node relays and what your node mines. They do not change which blocks
 are valid, so Plumb follows the same chain as the Knots release it is built
 on.
 
-It is a drop-in replacement for Knots: same `bitcoind` and `bitcoin-cli`
-binaries, same `bitcoin.conf`, same data directory. You can switch back to
-Knots at any time.
+It is a drop-in replacement for the Knots release it is built on: same
+`bitcoind` and `bitcoin-cli` binaries, same `bitcoin.conf`, same data
+directory. You can switch back to that release at any time.
 
 What Plumb ships
 ----------------
