@@ -53,9 +53,9 @@ the exact commit of each pull request that was merged.
 Other Knots pull requests
 -------------------------
 
-Plumb also carries Knots pull requests that fix something other than spam,
-reviewed and merged the same way, until Knots ships them. They are not
-filters, so the startup lines and the filter count leave them out.
+Plumb also carries a few other Knots pull requests, reviewed and merged the
+same way, until Knots ships them. They add no Plumb filter, so the startup
+lines and the filter count leave them out.
 
 - [knots#487](https://github.com/bitcoinknots/bitcoin/pull/487) relays the
   penalty spend of an LND simple taproot channel, counting the key its
@@ -71,6 +71,11 @@ filters, so the startup lines and the filter count leave them out.
   advertises NODE_NETWORK or NODE_NETWORK_LIMITED without NODE_BLAKE2B is a
   full node still on the SHA256d chain, so it is left out of this even when
   whitelisted. It has no option.
+- [knots#525](https://github.com/bitcoinknots/bitcoin/pull/525) finds BPUB
+  multisigs anywhere in a witness script, so `-rejectbpub` also counts the
+  reveals that put `OP_1 OP_EQUAL` after the multisig, which Knots 29.5.1
+  relays. It has no option of its own: `rejectbpub=0` turns off the whole
+  BPUB rule, as in Knots.
 
 Recommended bitcoin.conf
 ------------------------

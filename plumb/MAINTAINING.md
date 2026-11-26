@@ -90,6 +90,10 @@ style, default on, so a node can go back to what Knots does
 (`-permitlnrevokeleaf` for knots#487). Drop it on the rebase onto the Knots
 release that ships it.
 
+A Knots pull request that changes the rule behind a Knots spam option
+(knots#525 for `-rejectbpub`) goes in the same way, with no option of its
+own: the Knots option still turns the rule off.
+
 Moving to a new Knots release
 -----------------------------
 
