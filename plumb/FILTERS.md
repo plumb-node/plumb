@@ -7,7 +7,8 @@ those, not this file.
 Each filter names where it came from. Most are Knots pull requests, merged
 here at the commit we reviewed. A filter marked Plumb's own came from our own
 research and has no Knots pull request; it is reviewed and ACKed on its pull
-request here like any other.
+request here like any other, or, if it has none, before the release that
+first ships it from its branch.
 
 Most filters count bytes they recognize as data. Knots then applies its data
 carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,

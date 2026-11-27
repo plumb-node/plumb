@@ -161,7 +161,7 @@ def check_init(filters):
     block = re.search(r"PLUMB_FILTERS\{\{(.*?)\}\};", init, re.DOTALL)
     if not block:
         sys.exit("PLUMB_FILTERS not found in src/init.cpp")
-    in_init = re.findall(r'\{"(-\w+)", \w+, "((?:knots|plumb)#\d+)"\}', block.group(1))
+    in_init = re.findall(r'\{"(-\w+)", \w+, "((?:knots|plumb)#\d+|plumb)"\}', block.group(1))
     in_json = [(f["option"], f["source"]) for f in filters]
     if in_init != in_json:
         sys.exit(f"src/init.cpp PLUMB_FILTERS {in_init} does not match plumb/filters.json {in_json}")
@@ -176,7 +176,8 @@ those, not this file.
 Each filter names where it came from. Most are Knots pull requests, merged
 here at the commit we reviewed. A filter marked Plumb's own came from our own
 research and has no Knots pull request; it is reviewed and ACKed on its pull
-request here like any other.
+request here like any other, or, if it has none, before the release that
+first ships it from its branch.
 
 Most filters count bytes they recognize as data. Knots then applies its data
 carrier rules to the count: with the default `-acceptnonstddatacarrier=0`,
@@ -232,7 +233,10 @@ def filters_md(filters):
     out = [FILTERS_INTRO]
     for f in filters:
         out.append(f"\n{f['name']}\n{'-' * len(f['name'])}\n")
-        if f["source"].startswith("plumb#"):
+        if f["source"] == "plumb":
+            out.append(f"Option `{f['option']}`, default on, Plumb's own filter; it has no pull request, here or in "
+                       f"Knots, and ships from its branch. In Plumb since `{f['since']}`.\n")
+        elif f["source"].startswith("plumb#"):
             related = f" [{f['related']}]({f['related_url']}) asked for filters like it." if f.get("related") else ""
             out.append(f"Option `{f['option']}`, default on, Plumb's own filter from [{f['source']}]({f['url']}); "
                        f"there is no Knots pull request.{related} In Plumb since `{f['since']}`.\n")
@@ -252,10 +256,10 @@ def filters_md(filters):
         if f.get("example"):
             ex = f["example"]
             out.append(f"**Example.** `{ex['txid']}` at block {ex['height']}: {ex['note']}.\n")
+        where = "" if f["source"] == "plumb" else f" and in [{f['source']}]({f['url']}){amended(f)}"
         out.append(f"**Turn it off.** In `bitcoin.conf`:\n\n```\n{f['option'][1:]}=0\n```\n\n"
                    f"or `{f['option']}=0` on the command line. The code is on the "
-                   f"[`{f['branch']}`](https://github.com/plumb-node/plumb/tree/{f['branch']}) branch "
-                   f"and in [{f['source']}]({f['url']}){amended(f)}.\n")
+                   f"[`{f['branch']}`](https://github.com/plumb-node/plumb/tree/{f['branch']}) branch{where}.\n")
     out.append(LIMITS)
     return "\n".join(out)
 
@@ -272,11 +276,19 @@ def no_pr(f):
     return ", no Knots pull request" if f["source"].startswith("plumb#") else ""
 
 
+def origin(f):
+    """Where a filter came from, for the README list: its pull request, or for one of Plumb's own with no
+    pull request, its branch."""
+    if f["source"] == "plumb":
+        return f"Plumb's own, on its [`{f['branch']}`]({f['url']}) branch, no pull request"
+    return f"{own(f)}from [{f['source']}]({f['url']}){amended(f)}{no_pr(f)}"
+
+
 def readme_list(filters):
     lines = []
     for f in filters:
         lines.append(f"- **[{f['name']}](plumb/FILTERS.md#{anchor(f['name'])})**, `{f['option']}`, "
-                     f"{own(f)}from [{f['source']}]({f['url']}){amended(f)}{no_pr(f)}: {f['summary'][0].lower()}{f['summary'][1:]}.")
+                     f"{origin(f)}: {f['summary'][0].lower()}{f['summary'][1:]}.")
     lines.append("\nEvery filter is on by default and is its own option. [plumb/FILTERS.md](plumb/FILTERS.md)\n"
                  "says what each one rejects and leaves alone, with an example transaction and\n"
                  "the line that turns it off. `-corepolicy` turns all of them off along with the\n"

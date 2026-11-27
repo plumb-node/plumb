@@ -32,7 +32,10 @@ Knots pull request, or both. A filter from our own research is opened as a
 pull request here like any other and gets the same review and ACK before it
 merges. Its `source` in `plumb/filters.json` is `plumb#N`, its `url` is that
 pull request, and `related` can say which Knots issue or pull request asked
-for it.
+for it. One of our own can also ship straight from its `filter/` branch with
+no pull request, reviewed before the release that first ships it
+(`-rejectunprovenkeys`); its `source` is then `plumb` and its `url` the
+branch.
 
 1. Review it: read the code, run the suites, measure it against the chain
    since the fork, and run it on a mainnet node. Post the ACK on the pull
@@ -42,7 +45,7 @@ for it.
 3. Check it merges cleanly onto `29.x-plumb` and against every filter already
    in, then merge the branch with
    `git merge -S --no-ff filter/<name> -m "Merge knots#N: <title>"`
-   (or `#N` for a pull request here).
+   (or `#N` for a pull request here, `filter/<name>` for a filter with none).
 4. Add it to `PLUMB_FILTERS` in `src/init.cpp` and to `plumb/filters.json`:
    option, a short name, source, url, upstream status, branch, commit, a
    one-line summary, the release it first ships in, what it rejects, what it
