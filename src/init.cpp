@@ -1001,18 +1001,19 @@ void InitParameterInteraction(ArgsManager& args)
     }
 }
 
-//! Filters Plumb ships on top of Knots, with the PR each came from
+//! Filters Plumb ships on top of Knots, with the PR each came from ("plumb" for one of Plumb's own with none)
 struct PlumbFilter {
     std::string_view option;
     bool default_value;
     std::string_view source;
 };
-static constexpr std::array<PlumbFilter, 5> PLUMB_FILTERS{{
+static constexpr std::array<PlumbFilter, 6> PLUMB_FILTERS{{
     {"-rejectfakeoutputs", DEFAULT_REJECT_FAKE_OUTPUTS, "knots#389"},
     {"-rejectbareenvelopes", DEFAULT_REJECT_BARE_ENVELOPES, "knots#319"},
     {"-rejectfakemultisig", DEFAULT_REJECT_FAKE_MULTISIG, "knots#422"},
     {"-rejecttokenmessages", DEFAULT_REJECT_TOKEN_MESSAGES, "knots#489"},
     {"-rejectunverifiedwitness", DEFAULT_REJECT_UNVERIFIED_WITNESS, "plumb#8"},
+    {"-rejectunprovenkeys", DEFAULT_REJECT_UNPROVEN_KEYS, "plumb"},
 }};
 
 static void LogPlumbBanner(const ArgsManager& args)

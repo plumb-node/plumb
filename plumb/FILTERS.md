@@ -134,6 +134,28 @@ rejectunverifiedwitness=0
 or `-rejectunverifiedwitness=0` on the command line. The code is on the [`filter/rejectunverifiedwitness`](https://github.com/plumb-node/plumb/tree/filter/rejectunverifiedwitness) branch and in [plumb#8](https://github.com/plumb-node/plumb/pull/8).
 
 
+Unproven keys across inputs
+---------------------------
+
+Option `-rejectunprovenkeys`, default on, Plumb's own filter; it has no pull request, here or in Knots, and ships from its branch. In Plumb since `v29.5.1.knots20260508.plumb17`.
+
+**What it rejects.** A file spread over many multisig inputs, in keys that no signature in the spend proves. `-rejectfakemultisig` counts such keys script by script, past 10 in each; this filter adds them up over the whole transaction. The unproven keys of each script past 7 go into the count, and every key past 16 counts 33 bytes. Covers P2WSH, P2SH and tapscript k-of-n, as `-rejectfakemultisig` does.
+
+**What it leaves alone.** Real multisig. From the fork to block 983836 the widest real script left 10 keys unproven, a vault whose 2-of-3 has a timelocked 2-of-3 and a 3-of-6 behind it, spent one or two inputs to a transaction, and Liquid's 11-of-15 with its 2-of-3 recovery leaves 7, however many inputs a sweep has. Of the 234,470 transactions from block 961640 to 983836 that spend a multisig script and that cesspool.lol grades clean, it counts nothing in any.
+
+**Known cost.** A transaction spending six or more inputs of a script that leaves 10 keys unproven, such as the vault above, is refused at the default `-datacarriersize`. None was mined from the fork to block 983836.
+
+**Example.** `9567d324140372084df0ce82d0cdac41ff206368c56526e484b323dc36b3d47e` at block 983468: a BPUB file in 326 inputs, 325 of them a 1-of-11 multisig whose ten unsigned keys carry the file: 975 keys past 7, 959 past the transaction's 16, 31,647 bytes.
+
+**Turn it off.** In `bitcoin.conf`:
+
+```
+rejectunprovenkeys=0
+```
+
+or `-rejectunprovenkeys=0` on the command line. The code is on the [`filter/rejectunprovenkeys`](https://github.com/plumb-node/plumb/tree/filter/rejectunprovenkeys) branch.
+
+
 Lower data limits
 -----------------
 

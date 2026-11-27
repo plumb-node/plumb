@@ -103,5 +103,24 @@
       "height": 981837,
       "note": "a tapscript leaf of eight `OP_DROP`s before one key, spent with 555 bytes of data in the items it drops"
     }
+  },
+  {
+    "option": "-rejectunprovenkeys",
+    "name": "Unproven keys across inputs",
+    "source": "plumb",
+    "url": "https://github.com/plumb-node/plumb/tree/filter/rejectunprovenkeys",
+    "upstream": "none, Plumb's own",
+    "branch": "filter/rejectunprovenkeys",
+    "commit": "f66540b2670f009a1e143eb7f09fa78eb69bac5c",
+    "summary": "Adds up the multisig keys each input's script leaves unproven past 7, and counts those past 16 in a transaction as data carrier bytes",
+    "since": "v29.5.1.knots20260508.plumb17",
+    "catches": "A file spread over many multisig inputs, in keys that no signature in the spend proves. `-rejectfakemultisig` counts such keys script by script, past 10 in each; this filter adds them up over the whole transaction. The unproven keys of each script past 7 go into the count, and every key past 16 counts 33 bytes. Covers P2WSH, P2SH and tapscript k-of-n, as `-rejectfakemultisig` does.",
+    "passes": "Real multisig. From the fork to block 983836 the widest real script left 10 keys unproven, a vault whose 2-of-3 has a timelocked 2-of-3 and a 3-of-6 behind it, spent one or two inputs to a transaction, and Liquid's 11-of-15 with its 2-of-3 recovery leaves 7, however many inputs a sweep has. Of the 234,470 transactions from block 961640 to 983836 that spend a multisig script and that cesspool.lol grades clean, it counts nothing in any.",
+    "cost": "A transaction spending six or more inputs of a script that leaves 10 keys unproven, such as the vault above, is refused at the default `-datacarriersize`. None was mined from the fork to block 983836.",
+    "example": {
+      "txid": "9567d324140372084df0ce82d0cdac41ff206368c56526e484b323dc36b3d47e",
+      "height": 983468,
+      "note": "a BPUB file in 326 inputs, 325 of them a 1-of-11 multisig whose ten unsigned keys carry the file: 975 keys past 7, 959 past the transaction's 16, 31,647 bytes"
+    }
   }
 ]
