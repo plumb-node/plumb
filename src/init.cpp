@@ -776,6 +776,7 @@ void SetupServerArgs(ArgsManager& argsman, bool can_listen_ipc)
     argsman.AddArg("-rejectbareenvelopes", strprintf("Count a run of pushes ended by OP_DROP or OP_2DROP as data carrier bytes, the envelope shape that needs no OP_IF (default: %u)", DEFAULT_REJECT_BARE_ENVELOPES), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejectunverifiedwitness", strprintf("Count the bytes of witness items that no verified signature check used, beyond %u per input, as data carrier bytes (default: %u)", UNVERIFIED_WITNESS_ALLOWANCE, DEFAULT_REJECT_UNVERIFIED_WITNESS), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejectfakemultisig", strprintf("Count the keys of a multisig script that no signature in the spend can prove, beyond %u per script, as data carrier bytes (default: %u)", 10, DEFAULT_REJECT_FAKE_MULTISIG), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
+    argsman.AddArg("-rejectunprovenkeys", strprintf("Add up the multisig keys each input's script leaves unproven beyond %u, and count those past %u in a transaction as data carrier bytes, 33 per key (default: %u)", UNPROVEN_KEYS_PER_SCRIPT, MAX_UNPROVEN_KEYS_PER_TX, DEFAULT_REJECT_UNPROVEN_KEYS), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejectparasites", strprintf("Refuse to relay or mine parasitic overlay protocols (default: %u)", DEFAULT_REJECT_PARASITES), ArgsManager::ALLOW_ANY, OptionsCategory::NODE_RELAY);
     argsman.AddArg("-rejecttokens",
                    strprintf("Refuse to relay or mine transactions involving non-bitcoin tokens (default: %u)",
@@ -891,6 +892,7 @@ void InitParameterInteraction(ArgsManager& args)
         args.SoftSetArg("-rejectbareenvelopes", "0");
         args.SoftSetArg("-rejectfakemultisig", "0");
         args.SoftSetArg("-rejectunverifiedwitness", "0");
+        args.SoftSetArg("-rejectunprovenkeys", "0");
         args.SoftSetArg("-rejecttokens", "0");
         args.SoftSetArg("-rejectfakeoutputs", "0");
         args.SoftSetArg("-rejecttokenmessages", "0");
@@ -1249,6 +1251,7 @@ bool AppInitParameterInteraction(const ArgsManager& args)
     g_reject_bare_envelopes = args.GetBoolArg("-rejectbareenvelopes", g_reject_bare_envelopes);
     g_reject_fake_multisig = args.GetBoolArg("-rejectfakemultisig", g_reject_fake_multisig);
     g_reject_unverified_witness = args.GetBoolArg("-rejectunverifiedwitness", g_reject_unverified_witness);
+    g_reject_unproven_keys = args.GetBoolArg("-rejectunprovenkeys", g_reject_unproven_keys);
     g_permit_ln_revoke_leaf = args.GetBoolArg("-permitlnrevokeleaf", g_permit_ln_revoke_leaf);
 
     if (auto err = args.AssignIntArgToVar("bytespersigop", nBytesPerSigOp); !err) {

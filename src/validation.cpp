@@ -1580,12 +1580,12 @@ bool MemPoolAccept::PolicyScriptChecks(const ATMPArgs& args, Workspace& ws)
     // one the recount equals the count PreChecks already checked. Record the verified keys only then: a
     // non-null set makes CheckInputScripts skip the script execution cache so every input is run, which
     // is wasted work when no recount follows.
-    // The recount feeds the unproven-key rule and the unverified witness items, so with Plumb's
-    // -rejectfakemultisig=0 and -rejectunverifiedwitness=0 both off nothing is recorded, the script
-    // execution cache is used as before, and the recount does not run.
+    // The recount feeds the unproven-key rules and the unverified witness items, so with Plumb's
+    // -rejectfakemultisig=0, -rejectunverifiedwitness=0 and -rejectunprovenkeys=0 all off nothing is
+    // recorded, the script execution cache is used as before, and the recount does not run.
     const bool recount{m_pool.m_opts.datacarrier_fullcount &&
                        !args.m_ignore_rejects.count("txn-datacarrier-exceeded") &&
-                       tx.HasWitness() && (::g_reject_fake_multisig || ::g_reject_unverified_witness)};
+                       tx.HasWitness() && (::g_reject_fake_multisig || ::g_reject_unverified_witness || ::g_reject_unproven_keys)};
 
     // Check input scripts and signatures.
     // This is done last to help prevent CPU exhaustion denial-of-service attacks.

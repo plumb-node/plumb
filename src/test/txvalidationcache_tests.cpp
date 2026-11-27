@@ -589,10 +589,11 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_records_verified_keys, TestChain100Setup)
 BOOST_FIXTURE_TEST_CASE(plumb_rejectfakemultisig_keeps_script_execution_cache, TestChain100Setup)
 {
     // knots#470 records the keys a signature verified against for its recount, and a check that records
-    // them skips the script execution cache. Plumb's -rejectfakemultisig=0 turns the recount off, so the
-    // policy script check records nothing and reads the cache. A witness spend that breaks only a policy
-    // flag (MINIMALIF), with an entry put in the cache for its policy flags, tells the two apart: a check
-    // that reads the cache accepts it, one that records keys runs the scripts and refuses it.
+    // them skips the script execution cache. Plumb's -rejectfakemultisig=0, with -rejectunverifiedwitness=0
+    // and -rejectunprovenkeys=0, turns the recount off, so the policy script check records nothing and reads
+    // the cache. A witness spend that breaks only a policy flag (MINIMALIF), with an entry put in the cache
+    // for its policy flags, tells the two apart: a check that reads the cache accepts it, one that records
+    // keys runs the scripts and refuses it.
     const CScript p2pk{CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG};
     const CScript witness_script{CScript() << OP_IF << OP_TRUE << OP_ENDIF};
 
@@ -623,13 +624,15 @@ BOOST_FIXTURE_TEST_CASE(plumb_rejectfakemultisig_keeps_script_execution_cache, T
         validation_cache.ScriptExecutionCacheHasher().Write(UCharCast(tx->GetWitnessHash().begin()), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(entry.begin());
         validation_cache.m_script_execution_cache.insert(entry);
     }
-    // -rejectunverifiedwitness reads the same recording, so the recount runs while either switch is on
-    const bool saved{::g_reject_fake_multisig}, saved_witness{::g_reject_unverified_witness};
-    for (const auto& [fake_multisig, unverified_witness] : {std::pair{true, true}, {true, false}, {false, true}, {false, false}}) {
-        ::g_reject_fake_multisig = fake_multisig;
-        ::g_reject_unverified_witness = unverified_witness;
+    // -rejectunverifiedwitness and -rejectunprovenkeys read the same recording, so the recount runs while any of
+    // the three switches is on
+    const bool saved{::g_reject_fake_multisig}, saved_witness{::g_reject_unverified_witness}, saved_keys{::g_reject_unproven_keys};
+    for (const int on : {7, 6, 5, 4, 3, 2, 1, 0}) {
+        ::g_reject_fake_multisig = on & 1;
+        ::g_reject_unverified_witness = on & 2;
+        ::g_reject_unproven_keys = on & 4;
         const MempoolAcceptResult res{AcceptToMemoryPool(m_node.chainman->ActiveChainstate(), tx, GetTime(), /*bypass_limits=*/false, /*test_accept=*/true)};
-        if (fake_multisig || unverified_witness) {
+        if (on) {
             // On: keys are recorded, so the scripts run and MINIMALIF refuses the spend
             BOOST_CHECK(res.m_result_type == MempoolAcceptResult::ResultType::INVALID);
             BOOST_CHECK_EQUAL(res.m_state.GetRejectReason(), "mempool-script-verify-flag-failed (OP_IF/NOTIF argument must be minimal)");
@@ -640,6 +643,7 @@ BOOST_FIXTURE_TEST_CASE(plumb_rejectfakemultisig_keeps_script_execution_cache, T
     }
     ::g_reject_fake_multisig = saved;
     ::g_reject_unverified_witness = saved_witness;
+    ::g_reject_unproven_keys = saved_keys;
 }
 
 BOOST_FIXTURE_TEST_CASE(plumb_unverified_witness_count, BasicTestingSetup)

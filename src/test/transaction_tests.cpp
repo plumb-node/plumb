@@ -1685,6 +1685,174 @@ BOOST_AUTO_TEST_CASE(bpub_bytes)
     BOOST_CHECK_EQUAL(BPUBBytes(CTransaction{two_of_n}), 0U);
 }
 
+/**
+ * Add `inputs` inputs of a k-of-n multisig to tx and their coins to coins, each spent with k signatures.
+ * kind 0 is P2WSH, 1 P2SH-P2WSH, 2 P2SH. Every input has its own keys, as an HD wallet's do, unless
+ * same_script, which spends one address again.
+ */
+static void AddMultisigInputs(CMutableTransaction& tx, CCoinsViewCache& coins, const int k, const int n, const size_t inputs, const int kind = 0, const bool same_script = false)
+{
+    for (size_t i{0}; i < inputs; ++i) {
+        CScript script{CScript() << k};
+        for (int j{0}; j < n; ++j) {
+            std::vector<unsigned char> key(33, uint8_t(j + 1));
+            key[0] = 0x02;
+            if (!same_script) {
+                key[1] = uint8_t(i);
+                key[2] = uint8_t(i >> 8);
+                key[3] = uint8_t(n);
+            }
+            script << key;
+        }
+        script << n << OP_CHECKMULTISIG;
+        CTxIn& txin{tx.vin.emplace_back()};
+        txin.prevout = COutPoint{Txid::FromUint256(uint256::ONE), uint32_t(tx.vin.size() - 1)};
+        std::vector<std::vector<unsigned char>> items{{}};
+        for (int s{0}; s < k; ++s) items.emplace_back(72, 1);
+        CScript spk;
+        if (kind == 2) {
+            CScript sig;
+            for (const auto& item : items) sig << item;
+            txin.scriptSig = sig << std::vector<unsigned char>(script.begin(), script.end());
+            spk = GetScriptForDestination(ScriptHash{script});
+        } else {
+            items.emplace_back(script.begin(), script.end());
+            txin.scriptWitness.stack = items;
+            const CScript program{GetScriptForDestination(WitnessV0ScriptHash{script})};
+            if (kind == 1) {
+                txin.scriptSig = CScript() << std::vector<unsigned char>(program.begin(), program.end());
+                spk = GetScriptForDestination(ScriptHash{program});
+            } else {
+                spk = program;
+            }
+        }
+        coins.AddCoin(txin.prevout, Coin{CTxOut{1000, spk}, 1, false}, false);
+    }
+}
+
+/** Coins paying the P2WSH of each input's witness script, for a mined transaction whose prevouts are not at hand. */
+static void AddP2WSHCoins(const CTransaction& tx, CCoinsViewCache& coins)
+{
+    for (const CTxIn& txin : tx.vin) {
+        const auto& script{txin.scriptWitness.stack.back()};
+        coins.AddCoin(txin.prevout, Coin{CTxOut{1000, GetScriptForDestination(WitnessV0ScriptHash{CScript(script.begin(), script.end())})}, 1, false}, false);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(unproven_keys_across_inputs)
+{
+    // UNPROVEN_KEYS_PER_SCRIPT and MAX_UNPROVEN_KEYS_PER_TX
+    constexpr size_t floor_keys{7}, tx_keys{16};
+    BOOST_CHECK_EQUAL(UNPROVEN_KEYS_PER_SCRIPT, floor_keys);
+    BOOST_CHECK_EQUAL(MAX_UNPROVEN_KEYS_PER_TX, tx_keys);
+    const auto first = [](const CMutableTransaction& mtx, const CCoinsViewCache& coins) {
+        const CTransaction tx{mtx};
+        return DatacarrierBytes(tx, coins, DataOutputBytes(tx, &coins)).first;
+    };
+    CCoinsView dummy;
+    BOOST_REQUIRE(g_reject_unproven_keys);
+
+    // A consolidation of ordinary multisig adds nothing, however many inputs it has
+    for (const auto& [k, n] : std::vector<std::pair<int, int>>{{2, 3}, {2, 2}, {1, 2}, {3, 5}, {11, 15}}) {
+        CCoinsViewCache coins{&dummy};
+        CMutableTransaction tx;
+        AddMultisigInputs(tx, coins, k, n, 500);
+        BOOST_CHECK_EQUAL(first(tx, coins), 0U);
+    }
+
+    // Block 966,515, tx 9cb369b0cc44f250367f49be004f99e0710f839ce7e33c5cca8b5960a2c9d065: two inputs of a
+    // vault whose 2-of-3 has a timelocked 2-of-3 and a 3-of-6 behind it, 12 keys and two signatures, so
+    // 10 unproven keys in each script, the most any real wallet left from block 961640 to 983836. 3 past
+    // the floor each, 6 in all.
+    CMutableTransaction vault;
+    BOOST_REQUIRE(DecodeHexTx(vault, "020000000001025501896960521b4a5e80e9e9e908a15518d167c43749a1889100a0d5d0218bdb0000000000401400005dd7c29fcf4aec53b4ccd1ba9f6e003effa3552718b8c3232a1e3ee900ff2612000000000040140000015745000000000000220020cec7736617737876d759424a5139ac6460fce8a6f89cd4e078f720cb277aceea0700483045022100de286185e3c11321327a2d83e5ce91ed422b74d8a8a539f11742f186c18526a90220632a7693f7243975137cfbe72c1a9ec3dac975913498a341c47b87ef1762e13e01473044022043d5ab0eebd1e0a0ee59e1f04113ddf4e676afbf17d8dba7b7d2861677c2360c02200cb4d495455d901a46a8665f57efbb3b1f2b1de5721ca58f053f8b1bef50c20401000000fda801522103afb06de3ab812244151eb990dae79e52539e752fc0c19754f5b8be1db50af1b6210277a18fa4d441acbfe50f21e821725192c0f9c951180d17fcf52816dee1be391a2103bc1d143e61b5b5cdf39ec6ba14f73390aaf4ddd4889f991e7dc3990013f7de2253ae645221036c5d6e4f523bddce6ed5d674702f5079419dbcaad9427972f9cedb233829e4802102d90d573926e8895a1d67da9cce8da68b1fd5f4ab6e2e5eeb63f82c12526a78192103a1fb0c561351c093b25d520e44b446e42eb7d701a87840e37feeda3dacd6029c53af024014b267532102164971e6d2c3413908d248abea9df87f59346a2d9a61a7c392219dde1d9e042721032c1fe51e85ac21f69a60e14377fb82d2eb9c18bb563c585e7837dbcbf2c64bd221029cc0226db529c616a8d4d931e4381fcdacaf52b0a7552f00d72e12926841c4df21036c1c915e1db19c49704df0237f86149dd4893788fa8074b35bff03bfb95afcd621032064a75279bc622db8e67652d007b378dad7518b18b1e5f12a2ff235fdb7aedb2103195c1b78119e9f6f896fd233046aae4a7eedaeafedbc02884f74f133acdf956656ae6807004730440220532c44c756f860e6433805bf3d8d0e4075ba50cd82c882c11083116ff2b1b474022027755522c24e5d3da0e96173244810464cf1889590794b4544e48fe050e3bcef01473044022049c63f4cefef2888a3e6ea6ddbd3c3eff48e64ca0ff7d567ac0b573426c0f5d5022077879d492362d6c89608a885d0c6a5058e6acce468b59b8c607a9344b302d77601000000fda801522102c553b9bd687dd7899a472849cb7f3bb328d8f1003663269b3191f95dfb23da542103fdac07fd5bf311fe26db85e938a229c6c0f28b6805cb33be63dd75f11393f2a4210231344ba62499197c103a80b57c08ab7e3b0213f94a7d288fb6e152d10bfaa81253ae64522103e2e9e9b53e2ae5f9bba8fb53b095baa0382fdbc26d55e5072355b1b878e95af6210227c1d77c9f540b6087b5147f09887455b3c9e3b19a087cb2ed38ceb81f01c18c2102558cf6331740668f282953ed26005e2794c1f9a84d64c0154cb833df27dd933c53af024014b267532103e403af751f9a9d602748095ee51dafe356a8660ec692764538fc94a6f69f45902102446c27fe51c14a2e9b65b9b980dc2b7dc1df9b57962aaa466bff262e27a137572102b82094ef8976e96a8837f4afc773582bacc8f5c94d022a22aa398fb0217f054a21034dccbf51fe1ec8bad523daf9ba9a8609a0746037e191d6a39af1a340c203de77210241923c51f389928055b5270dd8964195687d11eb66a6a464abe2927af08985d52103ca4d25ce97c50b29ca0cd5c5f105e7b45cf516c38c3f7fa11e60a1e39badce0556ae6800000000"));
+    // Block 974,953, tx e7b51bb99f3ed8a0a239670860c39e9c5dcccce27cd60bddd168a65a3cae0151: a Liquid
+    // federation spend, 11-of-15 with a timelocked 2-of-3 recovery, 18 keys and 11 signatures, 7
+    // unproven. The federation sweeps in batches (34 such inputs at block 962007), so 34 copies.
+    CMutableTransaction liquid_one, liquid;
+    BOOST_REQUIRE(DecodeHexTx(liquid_one, "010000000001016f72f85cac6ce9bef242b0fc934c614d7d64b372572bd2db1c6c5bca1a7f78270100000000ffffffff01a5212004000000002200206ffedd766bdb2a6e2155565a7883d6a8c0ea3f0e4ce113c046a838a4d64ee98d0d00483045022100e543438fa433f9174aee0fd1d87673b7bb3a0a0943849f75c33b256dbc7341d7022026a3dd62d9d789e5d615f968563b883653534cc259aaa9f06192d5f9d8f0915101483045022100fdd7ed43678b7495388d5fe2e98f48713300e75713141256d550ab76d15b1750022040e1114393ad7339a6da54e1d9765d3cf942409669f6cdfa8146b23776610fe401473044022073c13fcd875ed2fee558bc22cbbc16911f304b3f6ff22ff3898eca5c843041660220363ab8ea50634b92abbc93ca940a9487f9dcafd50b7c65846883a1ba716191f001483045022100e99359ce1768db56ac870582dacc4d66f1eccab8c968062f86e10db64b6740a5022054232a266c062574151b241f995d3406abafb566f403608e725f6b8b0acaf94701483045022100cd856ec625411bb738b0f3fae91a36503fd2cd5c11f7bc237ff8dce52b351eba02204f0f6173570dac4c0aa9b38e76637f8ce00679a4e92656ec8a834b3d71da6df2014730440220318ce7200575a24707a7eb63cdfac7b884d308b484ddf3836ba7f09241b299c3022077ea5e763cfad6a51d3143f0035537f32b284601654bd84094462812e3a753660147304402206bd573506e96e2a46a4e105a8cc4ffbf85e62044e6d1d67f00e9c4330ee2a5b70220074a688e2c4c450045019ddf209546f3923bdffae4d28312240469c93a262c6401473044022037e8762e7a9c840069256eeac386fcc64ec564cfb85a04f0de6ce495ebda5d1a0220664b011a754624452de6908af0705d5308d695caf8c375b3101d84c08292fdcd014730440220475a18ed3b58ab0bae1c7626525890c96f5ca1c81549ba8c43ece0e79c82910b02202d1171d542d28a58c833e983f2cd1122b4df0c3621da316a90431229d78e12f80147304402203c9c47aa2a497c73a8306b3b1c484fa03eb761b51d586c76f9138ebd500f49d10220426ea9b767a75adf977ae64a6d2d5012bb2ae1caeb03a31d56a376837f868e5301483045022100a65684b8a0b9c2309c0c2fa1e1417bf0a87694ce958494ba5cda3ef40770298f02206d8861c5114bfecf27fee6cfd2c351f8df7c68dd00acb7a0ae9e6b32182404ad01fd72025b21020e0338c96a8870479f2396c373cc7696ba124e8635d41b0ea581112b678172612103101440dac1411f7561dbcabedf1827b6517b4a78127c78fa5bc0f28d7f80c35821021fad939f956beae2e6765b450552f1a75236c8b7314ec30474d8f4978b252ab22103db6f3d90f9820cb7aa1c58f0ed84cca7a84bfe166e68061af1063834342c4c9d2102a4e1a9638d46923272c266631d94d36bdb03a64ee0e14c7518e49d2f29bc401021031c41fdbcebe17bec8d49816e00ca1b5ac34766b91c9f2ac37d39c63e5e008afb2102e323a079079582cf6bb68583df94bd68c9590e5904062b503ef5476109ad739e2103111cf405b627e22135b3b3733a4a34aa5723fb0f58379a16d32861bf576b0ec2210318f331b3e5d38156da6633b31929c5b220349859cc9ca3d33fb4e68aa08401742103230dae6b4ac93480aeab26d000841298e3b8f6157028e47b0897c1e025165de121035abff4281ff00660f99ab27bb53e6b33689c2cd8dcd364bc3c90ca5aea0d71a62103bd45cddfacf2083b14310ae4a84e25de61e451637346325222747b157446614c2103cc297026b06c71cbfa52089149157b5ff23de027ac5ab781800a578192d175462103d3bde5d63bdb3a6379b461be64dad45eabff42f758543a9645afd42f6d4248282103ed1e8d5109c9ed66f7941bc53cc71137baa76d50d274bda8d5e8ffbd6e61fe9a5fae736402801fb269522103aab896d53a8e7d6433137bbba940f9c521e085dd07e60994579b64a6d992cf79210291b7d0b1b692f8f524516ed950872e5da10fb1b808b5a526dedc6fed1cf29807210386aa9372fbab374593466bc5451dc59954e90787f08060964d95c87ef34ca5bb53ae6800000000"));
+    for (uint32_t i{0}; i < 34; ++i) {
+        liquid.vin.push_back(liquid_one.vin[0]);
+        liquid.vin.back().prevout.n = i;
+    }
+    liquid.vout = liquid_one.vout;
+    for (const auto& [mtx, unproven] : std::vector<std::pair<const CMutableTransaction*, size_t>>{{&vault, 10}, {&liquid, 7}}) {
+        for (const CTxIn& txin : mtx->vin) {
+            const auto& item{txin.scriptWitness.stack.back()};
+            const UnprovenPubkeys count{CountUnprovenPubkeys(CScript(item.begin(), item.end()), &txin.scriptWitness, /*verified_keys=*/nullptr, /*bare_envelopes=*/true)};
+            BOOST_CHECK_EQUAL(count.pubkeys - count.provable, unproven);
+        }
+        CCoinsViewCache coins{&dummy};
+        AddP2WSHCoins(CTransaction{*mtx}, coins);
+        const size_t on{first(*mtx, coins)};
+        g_reject_unproven_keys = false;
+        BOOST_CHECK_EQUAL(first(*mtx, coins), on);
+        g_reject_unproven_keys = true;
+    }
+
+    // 10 unproven keys an input, each within its script's allowance of 10, add up past the floor: 3
+    // an input, and the keys past the transaction's 16 are data, 33 bytes each, in P2WSH, P2SH-P2WSH
+    // and P2SH alike
+    for (const int kind : {0, 1, 2}) {
+        CCoinsViewCache coins{&dummy};
+        CMutableTransaction tx;
+        AddMultisigInputs(tx, coins, 1, 11, 326, kind);
+        const size_t keys{326 * (10 - floor_keys)};
+        BOOST_CHECK_EQUAL(first(tx, coins), (keys - tx_keys) * 33);
+        // It is its own switch: -rejectfakemultisig=0 leaves it on, -rejectunprovenkeys=0 counts none of it
+        g_reject_fake_multisig = false;
+        BOOST_CHECK_EQUAL(first(tx, coins), (keys - tx_keys) * 33);
+        g_reject_fake_multisig = true;
+        g_reject_unproven_keys = false;
+        BOOST_CHECK_EQUAL(first(tx, coins), 0U);
+        g_reject_unproven_keys = true;
+    }
+
+    // Spending one address again counts each input, since each leaves its keys unproven again: six
+    // inputs are 18 keys past the floor, 2 past the transaction's 16
+    {
+        CCoinsViewCache coins{&dummy};
+        CMutableTransaction tx;
+        AddMultisigInputs(tx, coins, 1, 11, 6, /*kind=*/0, /*same_script=*/true);
+        BOOST_CHECK_EQUAL(first(tx, coins), 2U * 33);
+    }
+
+    // The boundary, however the inputs share it: five inputs of 3 and one of 1 are 16 and count nothing,
+    // one more of 1 is 17, one key of 33 bytes
+    {
+        CCoinsViewCache coins{&dummy};
+        CMutableTransaction tx;
+        AddMultisigInputs(tx, coins, 1, 11, 5);
+        AddMultisigInputs(tx, coins, 1, 9, 1);
+        BOOST_CHECK_EQUAL(first(tx, coins), 0U);
+        AddMultisigInputs(tx, coins, 1, 9, 1);
+        BOOST_CHECK_EQUAL(first(tx, coins), 33U);
+    }
+
+    // The recount counts the keys a signature verified against, and only adds: the last key verified
+    // leaves the same 10 unproven, nothing verified leaves all 11
+    {
+        CCoinsViewCache coins{&dummy};
+        CMutableTransaction mtx;
+        AddMultisigInputs(mtx, coins, 1, 11, 100);
+        const CTransaction tx{mtx};
+        std::vector<VerifiedKeys> last(tx.vin.size()), none(tx.vin.size());
+        for (size_t i{0}; i < tx.vin.size(); ++i) {
+            const auto& script{tx.vin[i].scriptWitness.stack.back()};
+            last[i].keys.emplace(script.end() - 2 - 33, script.end() - 2);
+            last[i].sigs.insert(tx.vin[i].scriptWitness.stack[1]);
+        }
+        const auto outputs{DataOutputBytes(tx, &coins)};
+        std::vector<DatacarrierInputCache> cache;
+        const size_t static_first{DatacarrierBytes(tx, coins, outputs, nullptr, &cache).first};
+        BOOST_CHECK_EQUAL(static_first, (100 * (10 - floor_keys) - tx_keys) * 33);
+        BOOST_CHECK_EQUAL(DatacarrierBytes(tx, coins, outputs, &last, &cache).first, static_first);
+        // With nothing verified the per-script rule counts one key an input (11 past its 10) too, and
+        // -rejectunverifiedwitness the 72 byte signature past its 42
+        BOOST_CHECK_EQUAL(DatacarrierBytes(tx, coins, outputs, &none, &cache).first, (100 * (11 - floor_keys) - tx_keys) * 33 + 100 * 33 + 100 * (72 - UNVERIFIED_WITNESS_ALLOWANCE));
+    }
+}
+
 BOOST_AUTO_TEST_CASE(tx_DataOutputBytes)
 {
     // Block 965,224, tx f93ee9d2a8d6fc0dce7889732d8e288ca64dacfe4c94c6cd76eb85037daea09c:
