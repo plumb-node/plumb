@@ -1683,6 +1683,78 @@ BOOST_AUTO_TEST_CASE(tx_DataOutputBytes)
     t.vout = {CTxOut{330, p2wsh(hash_a)}, CTxOut{330, p2wsh(hash_b)}, CTxOut{330, p2tr(key_on_a)}};
     check(t, {0, 0, 0});
 
+    // Whatever their values, DATA_OUTPUT_SMALL_RUN or more distinct P2WSH or P2SH
+    // scripts paid at most DATA_OUTPUT_SMALL_MAX_VALUE each are data: a BPUB funding
+    const auto small_p2wsh = [](int64_t k) { return GetScriptForDestination(WitnessV0ScriptHash(CScript() << k)); };
+    const auto small_p2sh = [](int64_t k) { return GetScriptForDestination(ScriptHash(CScript() << k)); };
+    const auto small_run = [&](size_t count, CAmount value, CAmount step) {
+        CMutableTransaction mtx;
+        for (size_t k{0}; k < count; ++k) mtx.vout.emplace_back(value + CAmount(k) * step, small_p2wsh(k));
+        return mtx;
+    };
+    const std::vector<size_t> small_counted(DATA_OUTPUT_SMALL_RUN, 41);
+    const std::vector<size_t> small_none(DATA_OUTPUT_SMALL_RUN, 0);
+    // 547 sat each, as the fundings since block 983,314 pay, or stepped by a sat
+    check(small_run(DATA_OUTPUT_SMALL_RUN, 547, 0), small_counted);
+    check(small_run(DATA_OUTPUT_SMALL_RUN, 547, 1), small_counted);
+    check(small_run(DATA_OUTPUT_SMALL_RUN, DATA_OUTPUT_SMALL_MAX_VALUE - DATA_OUTPUT_SMALL_RUN + 1, 1), small_counted);
+    // One output fewer is not a run
+    check(small_run(DATA_OUTPUT_SMALL_RUN - 1, 547, 0), std::vector<size_t>(DATA_OUTPUT_SMALL_RUN - 1, 0));
+    // Up to DATA_OUTPUT_SMALL_MAX_VALUE; an output paid more is not part of it
+    check(small_run(DATA_OUTPUT_SMALL_RUN, DATA_OUTPUT_SMALL_MAX_VALUE, 0), small_counted);
+    check(small_run(DATA_OUTPUT_SMALL_RUN, DATA_OUTPUT_SMALL_MAX_VALUE + 1, 0), small_none);
+    t = small_run(DATA_OUTPUT_SMALL_RUN, 547, 0);
+    t.vout.back().nValue = DATA_OUTPUT_SMALL_MAX_VALUE + 1;
+    check(t, small_none);
+    t.vout.emplace_back(547, small_p2wsh(DATA_OUTPUT_SMALL_RUN));
+    std::vector<size_t> expect_small(DATA_OUTPUT_SMALL_RUN + 1, 41);
+    expect_small[DATA_OUTPUT_SMALL_RUN - 1] = 0;
+    check(t, expect_small);
+    // It counts distinct scripts
+    t = small_run(DATA_OUTPUT_SMALL_RUN, 547, 0);
+    t.vout.back().scriptPubKey = t.vout.front().scriptPubKey;
+    check(t, small_none);
+    // P2SH outputs, which a P2SH-P2WSH spend reveals the same way, count in the same tally
+    t = small_run(DATA_OUTPUT_SMALL_RUN / 2, 547, 0);
+    for (size_t k{t.vout.size()}; k < DATA_OUTPUT_SMALL_RUN; ++k) t.vout.emplace_back(547, small_p2sh(k));
+    expect_small.assign(DATA_OUTPUT_SMALL_RUN / 2, 41);
+    expect_small.resize(DATA_OUTPUT_SMALL_RUN, 29);
+    check(t, expect_small);
+    t.vout.pop_back();
+    check(t, std::vector<size_t>(DATA_OUTPUT_SMALL_RUN - 1, 0));
+    // Taproot outputs are not part of it
+    t = small_run(DATA_OUTPUT_SMALL_RUN - 1, 547, 0);
+    t.vout.emplace_back(547, p2tr(key_on_a));
+    check(t, small_none);
+    // A Lightning commitment between two nodes that each accept LDK's default of 50 HTLCs
+    // from the peer: two anchors, to_local, to_remote and 100 HTLCs, every one of them small
+    t = CMutableTransaction{};
+    t.vout = {CTxOut{330, small_p2wsh(0)}, CTxOut{330, small_p2wsh(1)}, CTxOut{DATA_OUTPUT_SMALL_MAX_VALUE, small_p2wsh(2)}, CTxOut{354, small_p2wsh(3)}};
+    for (int64_t k{0}; k < 100; ++k) t.vout.emplace_back(354 + 5 * k, small_p2wsh(4 + k));
+    check(t, std::vector<size_t>(t.vout.size(), 0));
+    // At BOLT 2's limit, 483 HTLCs offered by each side, which LND accepts from its peer by
+    // default, a commitment of small HTLCs is past the run and counted: no output rule tells
+    // it from a funding
+    t.vout.resize(4);
+    for (int64_t k{0}; k < 2 * 483; ++k) t.vout.emplace_back(354 + k % 547, small_p2wsh(4 + k));
+    expect_small.assign(t.vout.size(), 41);
+    check(t, expect_small);
+    // An output paying a script the transaction spends is not counted, though it counts
+    // toward the run; a run of nothing but such outputs counts nothing
+    CMutableTransaction small_spend{small_run(DATA_OUTPUT_SMALL_RUN, 547, 0)};
+    CCoinsViewCache small_coins(&coins_dummy);
+    for (uint32_t k{0}; k < DATA_OUTPUT_SMALL_RUN; ++k) {
+        small_spend.vin.emplace_back(COutPoint{Txid::FromUint256(uint256::ONE), k});
+        small_coins.AddCoin(small_spend.vin.back().prevout, Coin{CTxOut{1000, small_p2wsh(k)}, 1, false}, false);
+    }
+    std::vector<size_t> small_got{DataOutputBytes(CTransaction{small_spend}, &small_coins)};
+    BOOST_CHECK_EQUAL_COLLECTIONS(small_got.begin(), small_got.end(), small_none.begin(), small_none.end());
+    small_spend.vin.resize(1);
+    small_got = DataOutputBytes(CTransaction{small_spend}, &small_coins);
+    expect_small.assign(DATA_OUTPUT_SMALL_RUN, 41);
+    expect_small[0] = 0;
+    BOOST_CHECK_EQUAL_COLLECTIONS(small_got.begin(), small_got.end(), expect_small.begin(), expect_small.end());
+
     // A taproot key that is not on the curve can never be spent
     t.vout = {CTxOut{100000, p2tr(key_off)}};
     check(t, {41});

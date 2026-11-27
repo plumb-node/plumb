@@ -5,12 +5,15 @@ Policy
   as data carrier bytes, so under the default settings a transaction carrying
   them is rejected with `txn-datacarrier-nonstandard`. This covers payloads
   spread over three or more distinct P2WSH outputs that share one value of
-  353 sat or less (the OLGA layout, whatever magic it uses), taproot outputs
-  whose key is not on the curve, and any hash with one byte value repeated
-  eight times or six times in a row, past up to seven leading zero bytes.
+  353 sat or less (the OLGA layout, whatever magic it uses), 105 or more
+  distinct P2WSH or P2SH outputs of 900 sat or less each at any values (the
+  funding transactions of BPUB files), taproot outputs whose key is not on
+  the curve, and any hash with one byte value repeated eight times or six
+  times in a row, past up to seven leading zero bytes.
   Lightning commitments (no channel's dust limit is below 354 sat, so only
-  their anchors are that small), ordinals postage, vanity addresses whose hash
-  starts with up to seven zero bytes and outputs to the all-zero burn hash are
-  unaffected. The new
+  their anchors are that small) are unaffected unless more than 100 HTLCs of
+  900 sat or less are open on the channel at once. Ordinals postage, vanity
+  addresses whose hash starts with up to seven zero bytes and outputs to the
+  all-zero burn hash are unaffected. The new
   `-rejectfakeoutputs` option (default: 1, reset by `-corepolicy`) turns the
   detection off without accepting other non-standard data carriers.

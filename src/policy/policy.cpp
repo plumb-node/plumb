@@ -728,6 +728,8 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCach
     std::vector<bool> data(n, false);
     std::vector<bool> covered(n, false);
     std::map<CAmount, std::set<std::vector<unsigned char>>> run_programs;
+    std::vector<bool> small(n, false);
+    std::set<std::vector<unsigned char>> small_programs;
     unsigned int curve_checks{0};
 
     for (size_t i{0}; i < n; ++i) {
@@ -759,6 +761,10 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCach
             in_run[i] = true;
             run_programs[txout.nValue].insert(program);
         }
+        if ((types[i] == TxoutType::WITNESS_V0_SCRIPTHASH || types[i] == TxoutType::SCRIPTHASH) && txout.nValue <= DATA_OUTPUT_SMALL_MAX_VALUE) {
+            small[i] = true;
+            small_programs.insert(program);
+        }
     }
 
     // A payload is spread over several outputs, and its other chunks may be
@@ -772,18 +778,33 @@ std::vector<size_t> DataOutputBytes(const CTransaction& tx, const CCoinsViewCach
     // share one amount, so the run stops below 354. Taproot is left to the
     // curve check, since a run of small taproot outputs is ordinals postage,
     // not a payload. Whitened chunks at distinct values, above
-    // DATA_OUTPUT_RUN_MAX_VALUE or in 20-byte outputs are not caught, since
-    // only their layout would mark them as data.
+    // DATA_OUTPUT_RUN_MAX_VALUE or in 20-byte outputs are not caught by it,
+    // since only their layout would mark them as data.
+    //
+    // Whatever the values, DATA_OUTPUT_SMALL_RUN or more distinct P2WSH or
+    // P2SH scripts paid at most DATA_OUTPUT_SMALL_MAX_VALUE each are data, so
+    // stepping each output's value by a sat does not help. That is a BPUB
+    // funding: hundreds of small outputs whose scripts the spend reveals as
+    // multisig keys carrying a file, through P2WSH or P2SH-P2WSH alike.
+    // Lightning gets there only with more than 100 HTLCs that small open on
+    // one channel: two nodes at the defaults of LDK (50 HTLCs accepted from
+    // the peer), CLN or Eclair (30) put at most 104 P2WSH outputs on a
+    // commitment, counting anchors, to_local and to_remote. LND accepts 483
+    // from its peer by default, the most BOLT 2 allows, so a channel with
+    // LND can. A funding split into transactions of fewer outputs, or
+    // paying each output more than DATA_OUTPUT_SMALL_MAX_VALUE, is not
+    // caught.
     std::set<std::pair<TxoutType, CAmount>> data_groups;
     for (size_t i{0}; i < n; ++i) {
         if (data[i]) data_groups.emplace(types[i], tx.vout[i].nValue);
     }
+    const bool small_run{small_programs.size() >= DATA_OUTPUT_SMALL_RUN};
     std::vector<size_t> ret(n, 0);
     for (size_t i{0}; i < n; ++i) {
         if (!program_size[i] || spent[i]) continue;
         const bool sibling{data_groups.count({types[i], tx.vout[i].nValue}) > 0};
         const bool dust_run{in_run[i] && run_programs[tx.vout[i].nValue].size() >= DATA_OUTPUT_DUST_RUN};
-        if (data[i] || sibling || dust_run) {
+        if (data[i] || sibling || dust_run || (small[i] && small_run)) {
             ret[i] = program_size[i] + /* script length */ 1 + /* amount */ 8;
         }
     }
