@@ -3,9 +3,9 @@ import { rm } from 'fs/promises'
 import { bitcoinConfFile } from '../fileModels/bitcoin.conf'
 
 export const current = VersionInfo.of({
-  version: '#plumb:29.5.1.15:0',
+  version: '#plumb:29.5.1.16:0',
   releaseNotes: {
-    en_US: `Plumb v29.5.1.knots20260508.plumb15, from the signed release tarball. It is built on Bitcoin Knots 29.5.1 and carries its consensus rules. It fixes a bug that plumb12, plumb13 and plumb14 have; nodes running them should upgrade.`,
+    en_US: `Plumb v29.5.1.knots20260508.plumb16, from the signed release tarball. It is built on Bitcoin Knots 29.5.1 and carries its consensus rules. It refuses a newer form of BPUB reveal that Plumb 15 and Knots 29.5.1 relay; nodes running an earlier Plumb should upgrade.`,
   },
   migrations: {
     up: async ({ effects }) => {},
