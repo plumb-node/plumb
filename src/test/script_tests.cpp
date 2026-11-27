@@ -2339,6 +2339,64 @@ BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys)
     BOOST_CHECK_EQUAL(22U, UnprovenBytes(wide_a, TapscriptWitness(128, 128, wide_a), &most));
 }
 
+BOOST_AUTO_TEST_CASE(script_CountUnprovenPubkeys)
+{
+    // The counts behind the unproven-pubkey bytes, before any allowance
+    const CScript two_of_three{MultisigScript(2, 3)};
+    const CScriptWitness two_sigs{MultisigWitness(2, two_of_three)};
+    UnprovenPubkeys count{CountUnprovenPubkeys(two_of_three, &two_sigs, /*verified_keys=*/nullptr, /*bare_envelopes=*/true)};
+    BOOST_CHECK_EQUAL(count.pubkeys, 3U);
+    BOOST_CHECK_EQUAL(count.provable, 2U);
+    // With no keys observed every counted push is unverified
+    BOOST_CHECK_EQUAL(count.unverified_keys, 3U);
+    BOOST_CHECK_EQUAL(count.unverified_bytes, 99U);
+    BOOST_CHECK_EQUAL(count.odd_bytes, 0U);
+    // Two keys verified leave one
+    const VerifiedKeys two{KeysUpTo(2)};
+    count = CountUnprovenPubkeys(two_of_three, &two_sigs, &two, /*bare_envelopes=*/true);
+    BOOST_CHECK_EQUAL(count.provable, 2U);
+    BOOST_CHECK_EQUAL(count.unverified_keys, 1U);
+    BOOST_CHECK_EQUAL(count.unverified_bytes, 33U);
+
+    // One signature over eleven keys leaves ten unproven, and the per-script allowance is 10
+    const CScript one_of_eleven{MultisigScript(1, 11)};
+    const CScriptWitness one_sig{MultisigWitness(1, one_of_eleven)};
+    const VerifiedKeys top{KeysUpTo(11, 33, 11)};
+    count = CountUnprovenPubkeys(one_of_eleven, &one_sig, &top, /*bare_envelopes=*/true);
+    BOOST_CHECK_EQUAL(count.pubkeys, 11U);
+    BOOST_CHECK_EQUAL(count.provable, 1U);
+    BOOST_CHECK_EQUAL(count.unverified_keys, 10U);
+    BOOST_CHECK_EQUAL(count.unverified_bytes, 330U);
+    BOOST_CHECK_EQUAL(UnprovenBytes(one_of_eleven, one_sig, &top), 0U);
+
+    // Tapscript counts an x-only key where OP_CHECKSIG or OP_CHECKSIGADD claims it
+    const CScript multi_a{MultiAScript(1, 11)};
+    const CScriptWitness multi_a_spend{TapscriptWitness(1, 11, multi_a)};
+    count = CountUnprovenPubkeys(multi_a, &multi_a_spend, /*verified_keys=*/nullptr, /*bare_envelopes=*/true);
+    BOOST_CHECK_EQUAL(count.pubkeys, 11U);
+    BOOST_CHECK_EQUAL(count.provable, 1U);
+    BOOST_CHECK_EQUAL(count.unverified_keys, 11U);
+    BOOST_CHECK_EQUAL(count.unverified_bytes, 11U * 32);
+
+    // A dropped key is the drop rule's, so it is not counted here, verified or not
+    CScript dropped{CScript() << std::vector<unsigned char>(33, 1) << OP_DROP};
+    const CScript one_of_two{MultisigScript(1, 2)};
+    dropped.insert(dropped.end(), one_of_two.begin(), one_of_two.end());
+    count = CountUnprovenPubkeys(dropped, nullptr, /*verified_keys=*/nullptr, /*bare_envelopes=*/true);
+    BOOST_CHECK_EQUAL(count.pubkeys, 2U);
+    BOOST_CHECK_EQUAL(count.unverified_keys, 2U);
+    count = CountUnprovenPubkeys(dropped, nullptr, /*verified_keys=*/nullptr, /*bare_envelopes=*/false);
+    BOOST_CHECK_EQUAL(count.pubkeys, 2U);
+    BOOST_CHECK_EQUAL(count.unverified_keys, 2U);
+
+    // An unparsable script counts nothing; its caller counts it whole
+    CScript truncated{MultisigScript(1, 11)};
+    truncated.push_back(OP_PUSHDATA1);
+    count = CountUnprovenPubkeys(truncated, &one_sig, /*verified_keys=*/nullptr, /*bare_envelopes=*/true);
+    BOOST_CHECK_EQUAL(count.pubkeys, 0U);
+    BOOST_CHECK_EQUAL(count.unverified_keys, 0U);
+}
+
 BOOST_AUTO_TEST_CASE(script_DatacarrierBytes_verified_keys_plumb_switches)
 {
     // With Plumb's -rejectbareenvelopes=0 the drop rule counts only the last push before an OP_DROP,

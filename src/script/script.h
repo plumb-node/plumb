@@ -58,6 +58,21 @@ struct VerifiedKeys {
     bool operator==(const VerifiedKeys&) const = default;
 };
 
+/**
+ * What the unproven-pubkey rule of -rejectfakemultisig finds in one script, before any allowance: the
+ * key pushes it counts, how many of them a signature check can prove (capped by the signatures the
+ * witness carries), the counted pushes no verified signature vouches for, one per key and in bytes
+ * (all counted pushes when no verified keys are given), and the odd pushes it counts as data in full.
+ * An unparsable script counts nothing here; the caller counts it whole.
+ */
+struct UnprovenPubkeys {
+    size_t pubkeys{0};
+    size_t provable{0};
+    size_t unverified_keys{0};
+    size_t unverified_bytes{0};
+    size_t odd_bytes{0};
+};
+
 // Maximum script length in bytes
 static const int MAX_SCRIPT_SIZE = 10000;
 
@@ -644,6 +659,9 @@ DeadParts FindDeadParts(const CScript& script);
 
 /** Whether the witness has the form of a taproot script path spend of LND's to_local revocation leaf, whose dropped key counts toward the -datacarriersize budget rather than as non-standard data */
 bool IsLnTaprootRevokeLeaf(const CScript& script, const CScriptWitness& witness);
+
+/** The unproven-pubkey count of a script, see UnprovenPubkeys. */
+UnprovenPubkeys CountUnprovenPubkeys(const CScript& script, const CScriptWitness* witness, const VerifiedKeys* verified_keys, bool bare_envelopes);
 
 struct CScriptWitness
 {
