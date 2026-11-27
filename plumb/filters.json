@@ -93,7 +93,7 @@
     "url": "https://github.com/plumb-node/plumb/pull/8",
     "upstream": "none, Plumb's own",
     "branch": "filter/rejectunverifiedwitness",
-    "commit": "542d7c0feb5854e89923948f417c2f82c330da19",
+    "commit": "41844b6e56553709520ac7793be003690e00a672",
     "summary": "Counts the bytes of witness items no verified signature check used, past 42 per input, as data carrier bytes",
     "since": "v29.5.knots20260508.plumb12",
     "catches": "Data handed to a P2WSH, P2SH-P2WSH or tapscript spend as witness items that the script drops, or passes to a signature check that never runs. The padded fake-key reveals since block 981910 put 13 items of 64 bytes, dressed as signatures, behind `OP_SIZE 64 OP_EQUAL OP_NOTIF` and drop them; a tapscript at block 981837 drops 555 bytes with eight `OP_DROP`s. After the script check, an item counts unless a signature that verified, or the key it verified against, has the same bytes.",
