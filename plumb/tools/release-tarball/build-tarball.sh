@@ -18,7 +18,7 @@
 # kernel (on Debian or Ubuntu: sudo apt-get install qemu-user-static) and takes
 # much longer. Its work dir defaults to ~/scratch/plumb-release-<tag>-aarch64.
 set -euo pipefail
-TAG=${1:?tag, for example v29.5.1.knots20260508.plumb16}
+TAG=${1:?tag, for example v29.5.1.knots20260508.plumb17}
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(git -C "$HERE" rev-parse --show-toplevel)
 SIGNER=89F0E41D72CE523F4AA1CDB692CDFFB7C40CD1BA
