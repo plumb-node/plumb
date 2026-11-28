@@ -44,6 +44,7 @@ bool g_reject_dead_branches{DEFAULT_REJECT_DEAD_BRANCHES};
 bool g_reject_bare_envelopes{DEFAULT_REJECT_BARE_ENVELOPES};
 bool g_reject_fake_multisig{DEFAULT_REJECT_FAKE_MULTISIG};
 bool g_reject_unverified_witness{DEFAULT_REJECT_UNVERIFIED_WITNESS};
+bool g_reject_unproven_keys{DEFAULT_REJECT_UNPROVEN_KEYS};
 bool g_permit_ln_revoke_leaf{DEFAULT_PERMIT_LN_REVOKE_LEAF};
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
@@ -1009,6 +1010,26 @@ static size_t UnverifiedWitnessBytes(const CTxIn& txin, const bool taproot, cons
     return unverified > UNVERIFIED_WITNESS_ALLOWANCE ? unverified - UNVERIFIED_WITNESS_ALLOWANCE : 0;
 }
 
+/**
+ * The unproven keys of one input's script past UNPROVEN_KEYS_PER_SCRIPT, for -rejectunprovenkeys. They are
+ * counted as the unproven-pubkey rule of -rejectfakemultisig counts them: key pushes less the keys a
+ * signature check can prove, or, once the scripts have run, the larger of that and the keys no verified
+ * signature vouches for. A file spread over many multisig inputs leaves keys unproven in every one of
+ * them, where a real spend leaves few, and the scripts that leave many (a federation, a vault with
+ * recovery paths) come one or a few to a transaction.
+ */
+static size_t UnprovenKeysPastFloor(const CScript& script, const CScriptWitness& witness, const VerifiedKeys* verified_keys)
+{
+    // Each key counted here takes at least 34 bytes of script, a 33 or 65 byte push with its opcode or a
+    // 32 byte push and the checksig opcode that claims it, so a shorter script cannot pass the floor.
+    static constexpr size_t MIN_KEY_SCRIPT_BYTES{CPubKey::COMPRESSED_SIZE + 1};
+    if (script.size() < (UNPROVEN_KEYS_PER_SCRIPT + 1) * MIN_KEY_SCRIPT_BYTES) return 0;
+    const UnprovenPubkeys count{CountUnprovenPubkeys(script, &witness, verified_keys, ::g_reject_bare_envelopes)};
+    const size_t static_keys{count.pubkeys > count.provable ? count.pubkeys - count.provable : 0};
+    const size_t keys{verified_keys ? std::max(static_keys, count.unverified_keys) : static_keys};
+    return keys > UNPROVEN_KEYS_PER_SCRIPT ? keys - UNPROVEN_KEYS_PER_SCRIPT : 0;
+}
+
 std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsViewCache& view, const std::vector<size_t>& data_outputs, const std::vector<VerifiedKeys>* verified_keys, std::vector<DatacarrierInputCache>* input_cache)
 {
     std::pair<size_t, size_t> ret{0, 0};
@@ -1024,6 +1045,8 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
         input_cache->clear();
         input_cache->reserve(tx.vin.size());
     }
+    // Unproven keys past each script's UNPROVEN_KEYS_PER_SCRIPT, over all inputs
+    size_t unproven_keys{0};
 
     for (size_t i{0}; i < tx.vin.size(); ++i) {
         const CTxIn& txin = tx.vin[i];
@@ -1070,9 +1093,14 @@ std::pair<size_t, size_t> DatacarrierBytes(const CTransaction& tx, const CCoinsV
             const bool taproot{utxo.scriptPubKey.IsWitnessProgram(version, program) && version == 1};
             dcb.first += UnverifiedWitnessBytes(txin, taproot, *input_keys);
         }
+        // An early return has counted the script whole. P2WPKH and key path spends come back as an empty
+        // script here; P2PKH comes back as its scriptSig, one key and no signature check, and adds
+        // nothing either.
+        if (::g_reject_unproven_keys && normal) unproven_keys += UnprovenKeysPastFloor(script, txin.scriptWitness, input_keys);
         ret.first += dcb.first;
         ret.second += dcb.second;
     }
+    if (unproven_keys > MAX_UNPROVEN_KEYS_PER_TX) ret.first += (unproven_keys - MAX_UNPROVEN_KEYS_PER_TX) * CPubKey::COMPRESSED_SIZE;
     if (::g_reject_bpub) ret.second += BPUBBytes(tx);
     for (size_t i{tx.vout.size()}; i; ) {
         const CTxOut& txout = tx.vout[--i];

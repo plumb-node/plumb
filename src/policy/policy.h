@@ -79,6 +79,25 @@ static constexpr bool DEFAULT_REJECT_UNVERIFIED_WITNESS{true};
  * one input count past it, toward -datacarriersize.
  */
 static constexpr size_t UNVERIFIED_WITNESS_ALLOWANCE{42};
+/** Default for -rejectunprovenkeys */
+static constexpr bool DEFAULT_REJECT_UNPROVEN_KEYS{true};
+/**
+ * Unproven multisig keys a script may leave before the rest add up over the transaction's inputs. From
+ * block 961640 to 983836 no real wallet left more than 10 in a script: a vault whose 2-of-3 has a
+ * timelocked 2-of-3 and a 3-of-6 behind it (blocks 966515 and 980198), spent one or two inputs to a
+ * transaction. Liquid's 11-of-15 with its 2-of-3 recovery leaves 7 and is batched (34 inputs in one
+ * sweep at block 962007), so the floor is 7 and such batches add nothing.
+ */
+static constexpr size_t UNPROVEN_KEYS_PER_SCRIPT{7};
+/**
+ * Unproven keys past UNPROVEN_KEYS_PER_SCRIPT that a transaction may leave over all its inputs before the
+ * rest count as data carrier bytes, a compressed key's 33 bytes each. However the inputs share them, 16
+ * count nothing; a 17th counts 33 bytes, which a -datacarriersize of 42 takes when nothing else in the
+ * transaction counts. From block 961640 to 983836 no transaction that cesspool.lol grades as anything
+ * but spam left more than 8 (eight inputs of a 5-of-9 with a 3-of-4 recovery), so the allowance is
+ * twice that.
+ */
+static constexpr size_t MAX_UNPROVEN_KEYS_PER_TX{16};
 /** Default for -rejecttokens */
 static constexpr bool DEFAULT_REJECT_TOKENS{true};
 /** Default for -rejectfakeoutputs */
