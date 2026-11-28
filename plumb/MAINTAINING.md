@@ -18,6 +18,11 @@ Branch layout
    README, assets, and the revert of Knots commit 6323b42e07 that starts
    `-datacarriersize` at 42 instead of 83.
 
+Between rebuilds, a filter whose branch moves is merged again on top, and its
+`commit` in `plumb/filters.json` names the new tip (`-rejectfakeoutputs` and
+`-rejectunverifiedwitness` in plumb17). The next rebuild onto a Knots release
+gives each filter one merge again.
+
 Releases are signed tags on that branch:
 `v<knots version>.plumb<N>`, with `N` counting up by one with every release,
 across Knots bases (plumb8 was the first on 29.4.3).
