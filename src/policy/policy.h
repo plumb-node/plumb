@@ -278,6 +278,11 @@ static constexpr size_t DATA_OUTPUT_VANITY_ZEROS{7};
 static constexpr unsigned int DATA_OUTPUT_DUST_RUN{3};
 /** Highest output value a data run is looked for at, one below 354 sat, the smallest dust limit a Lightning channel can set */
 static constexpr CAmount DATA_OUTPUT_RUN_MAX_VALUE{353};
+/** Distinct P2WSH or P2SH outputs of at most DATA_OUTPUT_SMALL_MAX_VALUE each, at any values, are data from this many up:
+ *  one more than a Lightning commitment between two nodes that each accept 50 HTLCs from the peer can have */
+static constexpr unsigned int DATA_OUTPUT_SMALL_RUN{105};
+/** Highest output value counted toward DATA_OUTPUT_SMALL_RUN, below the 1,000 sat batch payouts to P2SH and P2WSH */
+static constexpr CAmount DATA_OUTPUT_SMALL_MAX_VALUE{900};
 /** Taproot outputs per transaction whose key is checked to be on the curve */
 static constexpr unsigned int DATA_OUTPUT_CURVE_CHECKS{64};
 

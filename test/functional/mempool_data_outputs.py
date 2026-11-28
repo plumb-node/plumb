@@ -5,7 +5,7 @@
 """Test outputs whose hash or key is data, and -rejectfakeoutputs"""
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, ser_string_vector
 from test_framework.psbt import PSBT, PSBTMap, PSBT_GLOBAL_UNSIGNED_TX, PSBT_IN_FINAL_SCRIPTWITNESS, PSBT_IN_WITNESS_UTXO
-from test_framework.script import CScript, OP_2, OP_3, OP_TRUE
+from test_framework.script import CScript, OP_2, OP_3, OP_EQUAL, OP_HASH160, OP_TRUE
 from test_framework.script_util import keyhash_to_p2pkh_script, program_to_witness_script, script_to_p2wsh_script
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_node import TestNode
@@ -47,9 +47,16 @@ class DataOutputsTest(BitcoinTestFramework):
     def run_test(self):
         self.wallet = MiniWallet(self.nodes[0])
         counted, tight, default, disabled, corepolicy, weighed_off, weighed_on = self.nodes
+        # Each case below spends a confirmed coin of its own; split one so there are enough
+        self.wallet.send_self_transfer_multi(from_node=counted, num_outputs=50)
+        self.generate(counted, 1)
+        self.wallet.rescan_utxos()
 
         def p2wsh(program):
             return program_to_witness_script(0, program)
+
+        def p2sh(script_hash):
+            return CScript([OP_HASH160, script_hash, OP_EQUAL])
 
         self.log.info("Testing three P2WSH outputs at the dust threshold (an OLGA-style payload, whatever its magic).")
         dust_run = [(330, p2wsh(randbytes(32))) for _ in range(3)]
@@ -68,6 +75,33 @@ class DataOutputsTest(BitcoinTestFramework):
         for htlc in (354, 360, 500, 546):
             commitment = [(330, p2wsh(randbytes(32))) for _ in range(2)] + [(htlc, p2wsh(randbytes(32))) for _ in range(3)]
             self.test_data_output_transaction(node=default, outputs=commitment, reject_reason=None)
+
+        self.log.info("Testing 105 distinct P2WSH outputs at 547 sat, the layout of a BPUB funding.")
+        funding = [(547, p2wsh(randbytes(32))) for _ in range(105)]
+        self.test_data_output_transaction(node=default, outputs=funding, reject_reason="txn-datacarrier-nonstandard")
+        # 105 * 41 bytes where non-standard carriers are accepted
+        self.test_data_output_transaction(node=counted, outputs=funding, reject_reason="txn-datacarrier-exceeded")
+        self.test_data_output_transaction(node=disabled, outputs=funding, reject_reason=None)
+        self.test_data_output_transaction(node=corepolicy, outputs=[(547, p2wsh(randbytes(32))) for _ in range(105)], reject_reason=None)
+
+        self.log.info("Testing that stepping the values apart, up to 900 sat, changes nothing.")
+        self.test_data_output_transaction(node=default, outputs=[(547 + i, p2wsh(randbytes(32))) for i in range(105)], reject_reason="txn-datacarrier-nonstandard")
+        self.test_data_output_transaction(node=default, outputs=[(900, p2wsh(randbytes(32))) for _ in range(105)], reject_reason="txn-datacarrier-nonstandard")
+
+        self.log.info("Testing that P2SH outputs count in the same tally.")
+        mixed = [(547, p2wsh(randbytes(32))) for _ in range(52)] + [(547, p2sh(randbytes(20))) for _ in range(53)]
+        self.test_data_output_transaction(node=default, outputs=mixed, reject_reason="txn-datacarrier-nonstandard")
+
+        self.log.info("Testing that 104 such outputs, or 105 at 901 sat, are still standard.")
+        self.test_data_output_transaction(node=default, outputs=[(547, p2wsh(randbytes(32))) for _ in range(104)], reject_reason=None)
+        self.test_data_output_transaction(node=default, outputs=[(547, p2wsh(randbytes(32))) for _ in range(52)] + [(547, p2sh(randbytes(20))) for _ in range(52)], reject_reason=None)
+        self.test_data_output_transaction(node=default, outputs=[(901, p2wsh(randbytes(32))) for _ in range(105)], reject_reason=None)
+
+        self.log.info("Testing a Lightning commitment with 100 small HTLCs, the most two nodes at LDK's default of 50 from the peer can have.")
+        # Two anchors, to_local and to_remote, then the HTLCs, all at or under 900 sat
+        commitment = [(330, p2wsh(randbytes(32))) for _ in range(2)] + [(900, p2wsh(randbytes(32))), (354, p2wsh(randbytes(32)))]
+        commitment += [(354 + 5 * i, p2wsh(randbytes(32))) for i in range(100)]
+        self.test_data_output_transaction(node=default, outputs=commitment, reject_reason=None)
 
         self.log.info("Testing that small P2WSH outputs of different values, or 330-sat taproot outputs, are still standard.")
         self.test_data_output_transaction(node=default, outputs=[(330, p2wsh(randbytes(32))), (330, p2wsh(randbytes(32))), (400, p2wsh(randbytes(32))), (450, p2wsh(randbytes(32)))], reject_reason=None)
